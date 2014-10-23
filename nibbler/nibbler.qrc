@@ -1,0 +1,7 @@
+<RCC>
+  <qresource prefix="img">
+    <file>nibbler.ico</file>
+    <file>nibbler-head.png</file>
+    <file>nibbler-logo.png</file>
+  </qresource>
+</RCC>
