@@ -33,6 +33,18 @@ typedef struct {
     size_t      hw_length;
 } net_hw_t;
 
+/* metric asstons of code seem to assume ethernet, expect the user to provide the network device and side-step the 
+ * routing tables as a result. This function takes an IPv4 address and discerns the outbound path for it. Eventually,
+ * we will be able to modify this slightly for multi-homed hosts with multiple paths to the destination to improve
+ * performance.
+ *
+ * @param dest         - IPv4 destination address
+ * @param hw_dest      - A pointer to the structure defined above that is L2 agnostic
+ * @param devo         - Optional parameter; upon success returns a net_device** to the device to be used
+ * @param rto          - Optional parameter; upon success returns a rtable** to the routing table to be used
+ *
+ * @returns 0 on success, <0 on failure.
+ */
 signed int
 get_ipv4_hw_dest(uint32_t dest, net_hw_t* hw_dest, struct net_device** devo, struct rtable** rto)
 {
@@ -46,8 +58,6 @@ get_ipv4_hw_dest(uint32_t dest, net_hw_t* hw_dest, struct net_device** devo, str
         ERR("Provided invalid NULL parameter\n");
         return -EINVAL;
     }
-
-    INF("DEST: %#x\n", dest);
 
     rtnl_lock();
     for_each_net(net) {
@@ -115,6 +125,23 @@ get_ipv4_hw_dest(uint32_t dest, net_hw_t* hw_dest, struct net_device** devo, str
     return 0;
 }
 
+/*
+ * This function needs to be reworked such that it just returns the allocated sk_buff.
+ * At present it takes a destination ipv4 address and the source/dest TCP ports, allocates
+ * an sk_buff and transmits the buffer to the appropriate network device via ndo_start_xmit().
+ *
+ * It needs to be improved to not only *not* transmit the buffer, but some sort of abstraction 
+ * needs to be introduced to allow for other transport protocols such as ICMP or UDP et al.
+ *
+ * TCP options are currently hard-coded and then commented out; packet size is important if youre
+ * going to be sending billions of them.
+ *
+ * @param addr             - Destination IPv4 address in network byte order
+ * @param dest             - Destintion TCP port in network byte order
+ * @param source           - Source TCP port in network byte order
+ *
+ * @returns 0 on success, <0 on failure.
+ */
 signed int
 init_ipv4_skb(uint32_t addr, uint16_t dest, uint16_t source)
 {
