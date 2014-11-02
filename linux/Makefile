@@ -1,8 +1,14 @@
-ccflag-t += -Wpadded
-obj-m += nbdev.o
+EXTRA_CFLAGS := -I$(src)/include
+TARGET := nbdev
+nbdev-objs := src/net.o src/char.o src/main.o
+obj-m := $(TARGET).o
 
-all:
+
+all: app.o
     make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
-    gcc -o app app.c
+
+app.o:
+    $(CC) -Iinclude -o app src/app.c
+
 clean:
     make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
