@@ -5,10 +5,10 @@ obj-m := $(TARGET).o
 
 
 all: app.o
-    make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
 
 app.o:
-    $(CC) -Iinclude -o app src/app.c
+	$(CC) -Iinclude -o app src/app.c
 
 clean:
-    make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean

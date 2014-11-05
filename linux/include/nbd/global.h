@@ -32,7 +32,7 @@ void plog(char*, ...);
 #else
 #define ERR(fmt, ...) plog("NIBBLER[ERR]: "fmt, ## __VA_ARGS__) 
 #define INF(fmt, ...) plog("NIBBLER[INF]: "fmt, ## __VA_ARGS__)
-#endif /* DEBUG &/
+#endif /* DEBUG */
 
 #ifdef DEBUG_ALLOCS
 #define ALO(fmt, ...) printk(KERN_INFO "NIBBLER[ALO]: "fmt, ## __VA_ARGS__)
