@@ -23,6 +23,7 @@
 #include <net/arp.h>
 #include <linux/route.h>
 #include <linux/pkt_sched.h>
+#include <linux/random.h>
 
 #include <nbd/dev.h>
 

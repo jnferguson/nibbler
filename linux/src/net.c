@@ -33,6 +33,149 @@ typedef struct {
     size_t      hw_length;
 } net_hw_t;
 
+
+/* 
+ * Transmits a given sk_buff; based largely on af_packet.c:packet_direct_xmit()
+ * & pktgen.c:pktgen_xmit()
+ *
+ * @params skb	- The sk_buff to transmit
+ *
+ * @returns 0 on success, or one of the following:
+ * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ * THE INPUT SKB IS NEVER DEALLOCATED.
+ * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ *
+ * -EINVAL		One of more properties of the sk_buff were invalid
+ * -ENETDOWN	The network is down
+ * -ECANCELED	The sk_buff couldnt be 'linearized' or packet was dropped. 
+ * -EAGAIN		The device/queue was busy or packet was 'policed', sk_buff; try again 
+ * -EDQUOT		The sk_buff was transmitted, however we will start dropping packets soon. 
+ */
+signed int
+tx_skb(struct sk_buff* skb)
+{
+	struct netdev_queue*    txq     	= NULL;
+	struct net_device*		dev			= NULL;
+	signed int				ret			= 0;
+	netdev_features_t 		features	= 0;
+
+	if (NULL == skb || NULL == skb->dev || 
+		NULL == skb->dev->netdev_ops || 
+		NULL == skb->dev->netdev_ops->ndo_start_xmit) {
+		//atomic_long_inc(&dev->tx_dropped);
+		//kfree_skb(skb);
+		return -EINVAL;
+	}
+	dev = skb->dev;
+
+	if (unlikely(!netif_running(dev) || !netif_carrier_ok(dev))) {
+		//atomic_long_inc(&dev->tx_dropped);
+		//kfree_skb(skb);
+		return -ENETDOWN;
+	}
+
+	features = netif_skb_features(skb);
+
+	/* XXX ??
+     * Reading through the source briefly, i think
+     * we will always avoid this branch because we
+     * never deal with fragments.
+     *
+     * Leaving in place 'just in case though'
+ 	 */
+	 if (skb_needs_linearize(skb, features) && __skb_linearize(skb)) {
+		//atomic_long_inc(&dev->tx_dropped);
+		//kfree_skb(skb);
+		return -ECANCELED;
+	}
+
+	txq = netdev_get_tx_queue(skb->dev, skb_get_queue_mapping(skb));
+
+	local_bh_disable();
+	HARD_TX_LOCK(dev, txq, get_cpu()); 
+
+	if (unlikely(netif_xmit_frozen_or_stopped(txq))) {
+		HARD_TX_UNLOCK(dev, txq);
+		put_cpu();
+		local_bh_enable();		
+		return -EAGAIN;
+	}
+
+	// We increment the user's count
+	// to make sure consume_skb()
+	// does not free the skb.
+    atomic_inc(&skb->users);
+    ret = dev->netdev_ops->ndo_start_xmit(skb, dev);
+    atomic_dec(&skb->users);
+
+    switch (ret) {
+        case NETDEV_TX_OK:		
+			txq_trans_update(txq);
+			ret = 0;
+            break;
+
+        case NET_XMIT_DROP:
+			atomic_long_inc(&dev->tx_dropped);
+			/* SKB was consumed apparently? */
+			/* Many code paths seem to kfree_skb()
+ 			 * before returning this. So that seems
+ 			 * like a safe assumption that this is 
+ 			 * generally/always the case */
+			ret = -ECANCELED;
+            break;
+
+        case NET_XMIT_CN:
+            /* We are not dropping packets yet
+ 			 * but will be soon. 
+ 			 */
+			ret = -EDQUOT;
+			txq_trans_update(txq);
+			break;
+        
+		case NET_XMIT_POLICED:
+    	default: 
+	       /* The comments in the header for this
+ 			 * literally say the skb was shot by 
+ 			 * the police. I'm not even sure what
+ 			 * that means exactly.
+ 			 */
+
+			/* The only places this is used in
+ 			 * 3.17 is in the packet scheduler
+ 			 * as a default initializer value that
+ 			 * is *never* returned, and in the batman
+ 			 * mesh protocol code. As such, we should
+ 			 * never see this really?
+ 			 *
+ 			 * We can discern how to treat this via 
+ 			 * dev_xmit_complete(), and if the SKB
+ 			 * was not consumed we treat it as the
+ 			 * same as the device being busy/etc.
+ 			 */
+
+			if (! dev_xmit_complete(ret)) {
+				ret = -EAGAIN;
+				break;
+			}
+	
+			ret = -ECOMM;
+			atomic_long_inc(&dev->tx_dropped);
+			break;
+        
+		case NETDEV_TX_LOCKED:
+        case NETDEV_TX_BUSY:
+			ret = -EAGAIN;
+        	//atomic_dec(&skb->users);
+            //kfree_skb(skb);
+            break;
+    }
+
+	HARD_TX_UNLOCK(dev, txq);
+	put_cpu();
+	local_bh_enable();
+	return ret;
+}
+
 /* metric asstons of code seem to assume ethernet, expect the user to provide the network device and side-step the 
  * routing tables as a result. This function takes an IPv4 address and discerns the outbound path for it. Eventually,
  * we will be able to modify this slightly for multi-homed hosts with multiple paths to the destination to improve
@@ -151,7 +294,6 @@ init_ipv4_skb(uint32_t addr, uint16_t dest, uint16_t source)
     struct net_device*      dev     = NULL;
     struct sk_buff*         skb     = NULL;
     struct rtable*          rt      = NULL;
-    struct netdev_queue*    txq     = NULL;
     size_t                  len     = 0;
     size_t                  res     = 0;
     size_t                  tlen    = 0;
@@ -185,11 +327,9 @@ init_ipv4_skb(uint32_t addr, uint16_t dest, uint16_t source)
         goto err;
     }
 
-    skb_get(skb);
-
     skb->ip_summed      = CHECKSUM_NONE;
     skb->dev            = dev;
-    skb->protocol       = ETH_P_IP; //IPPROTO_TCP;
+    skb->protocol       = ETH_P_IP; 
     skb->priority       = TC_PRIO_CONTROL;
     skb->pkt_type       = PACKET_OUTGOING;
 
@@ -205,6 +345,9 @@ init_ipv4_skb(uint32_t addr, uint16_t dest, uint16_t source)
         ERR("Error creating hardware header in dev_hard_header()\n");
         goto err;
     }
+
+	kfree(dhw.hw_addr);
+	dhw.hw_addr = NULL;
 
     skb_set_network_header(skb, skb->len);
     iph     = (struct iphdr*)skb_put(skb, sizeof(struct iphdr));
@@ -222,63 +365,41 @@ init_ipv4_skb(uint32_t addr, uint16_t dest, uint16_t source)
     iph->protocol   = IPPROTO_TCP;
     iph->saddr      = dev->ip_ptr->ifa_list->ifa_address;
     iph->daddr      = addr;
-    iph->id         = cpu_to_be16(44139); // FIXME
+    //iph->id         = cpu_to_be16(44139); // FIXME
     iph->frag_off   = cpu_to_be16(IP_DF);
     iph->tot_len    = cpu_to_be16(sizeof(struct iphdr) + sizeof(struct tcphdr)); //+plen);
     iph->check      = 0;
     iph->check      = ip_fast_csum((void *)iph, iph->ihl);
 
-    tcph->seq = cpu_to_be32(1185973523);
+	get_random_bytes(&iph->id, sizeof(iph->id));
+
+	//tcph->seq = cpu_to_be32(1185973523);
     tcph->ack_seq = 0;
-    ((u_int8_t *)tcph)[13] = 0;
+    //((u_int8_t *)tcph)[13] = 0;
     tcph->dest = dest;
     tcph->source = source;
     tcph->syn = 1;
     tcph->rst = 0;
     tcph->ack = 0;
-    tcph->window = cpu_to_be16(29200);
+   	//tcph->window = cpu_to_be16(29200);
     tcph->urg_ptr = 0;
     tcph->check = 0;
     tcph->doff = (sizeof(struct tcphdr))/4; //+plen)/4;
 
+	get_random_bytes(&tcph->seq, sizeof(tcph->seq));
+	get_random_bytes(&tcph->window, sizeof(tcph->window));
 
-    skb->ip_summed      = CHECKSUM_NONE;
-    tcph->check = tcp_v4_check(sizeof(struct tcphdr)/*+plen*/, iph->saddr, iph->daddr,
-                                csum_partial((char*)tcph, sizeof(struct tcphdr)/*+plen*/, 0));
+	if (128 > cpu_to_be16(tcph->window))
+		tcph->window = cpu_to_be16(128);
 
-    txq = netdev_get_tx_queue(skb->dev, skb_get_queue_mapping(skb));
+    skb->ip_summed	= CHECKSUM_NONE;
+    tcph->check 	= tcp_v4_check(sizeof(struct tcphdr)/*+plen*/, iph->saddr, iph->daddr,
+								csum_partial((char*)tcph, sizeof(struct tcphdr)/*+plen*/, 0));
 
-    __netif_tx_lock_bh(txq);
-    atomic_inc(&skb->users);
-    ret = dev->netdev_ops->ndo_start_xmit(skb, dev);
-    atomic_dec(&skb->users);
-    __netif_tx_unlock_bh(txq);
-
-    switch (ret) {
-        case NETDEV_TX_OK:
-            ERR("NET_TX_OK\n");
-            break;
-        case NET_XMIT_DROP:
-            ERR("NET_XMIT_DROP\n");
-            break;
-        case NET_XMIT_CN:
-            ERR("NET_XMIT_CN\n");
-            break;
-        case NET_XMIT_POLICED:
-            ERR("NET_XMIT_POLICED\n");
-            break;
-        default:
-            ERR("OTHER\n");
-            break;
-        case NETDEV_TX_LOCKED:
-            ERR("NETDEV_TX_LOCKED\n");
-            break;
-        case NETDEV_TX_BUSY:
-            ERR("NETDEV_TX_BUSY\n");
-            kfree_skb(skb);
-            break;
-    }
-
+	tx_skb(skb);
+	//tx_skb(skb);
+	atomic_dec(&skb->users);
+	kfree_skb(skb);
     dev_put(dev);
     return 0;
 
