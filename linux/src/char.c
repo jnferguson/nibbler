@@ -70,7 +70,7 @@ check_device(struct inode* i)
 static signed int
 char_open(struct inode* i, struct file* f)
 {
-	signed int	  ret = check_device(i);
+	signed int		ret = check_device(i);
 	unsigned int	min = iminor(i);
 
 	DBG("entered");
@@ -138,11 +138,11 @@ char_close(struct inode* i, struct file* f)
 static signed long
 char_ioctl(struct file * f, unsigned int c, unsigned long a)
 {
-	signed int		ret	 	= check_device_file(f);
-	unsigned int	min	 	= iminor(f->f_dentry->d_inode);
-	ip_network_t	net	 	= {0};
+	signed int		ret		= check_device_file(f);
+	unsigned int	min		= iminor(f->f_dentry->d_inode);
+	ip_network_t	net		= {0};
 	void __user*	argp	= (void __user*)a;
-	nb_dev_t*		nbd	 	= NULL;
+	nb_dev_t*		nbd		= NULL;
 
 	DBG("entered");
 
@@ -176,8 +176,8 @@ char_ioctl(struct file * f, unsigned int c, unsigned long a)
 				goto err_notty;
 			}
 
-			nbd->ndata.type	 = net.type;
-			nbd->ndata.mask	 = net.mask;
+			nbd->ndata.type		= net.type;
+			nbd->ndata.mask		= net.mask;
 			nbd->ndata.sport	= net.sport;
 			nbd->ndata.dport	= net.dport;
 
@@ -283,7 +283,7 @@ err:
 static int
 char_mmap(struct file* f, struct vm_area_struct * v)
 {
-	signed int	  ret	 = check_device_file(f);
+	signed int		ret	 = check_device_file(f);
 	unsigned int	min	 = iminor(f->f_dentry->d_inode);
 
 	DBG("entered");
@@ -486,7 +486,7 @@ char_data_init(nb_dev_t* d, ip_network_t* n)
 		return -ENOMEM;
 	}
 
-	d->dlen	 = len+rem;
+	d->dlen		= len+rem;
 	d->udlen	= len;
 	ALO("d->data pointer %p %lu bytes, %lu remainder, %lu IPs", d->data, len+rem, rem, len*8);
 
@@ -547,11 +547,11 @@ char_create(nb_dev_t* d, signed int min)
 		return -EINVAL;
 	}
 
-	d->cdev		 = cdev_alloc();
-	d->cdev->owner  = THIS_MODULE;
-	d->data		 = NULL;
-	d->pkt		  = NULL;
-	d->dlen		 = 0;
+	d->cdev		 	= cdev_alloc();
+	d->cdev->owner	= THIS_MODULE;
+	d->data		 	= NULL;
+	d->pkt			= NULL;
+	d->dlen			= 0;
 	d->udlen		= 0;
 
 	cdev_init(d->cdev, &nb_ops);
