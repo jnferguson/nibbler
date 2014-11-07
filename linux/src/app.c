@@ -62,7 +62,6 @@ main(void)
 
 	sleep(1*20);
 
-	printf("ioctl(STOP_SCAN_IOCTL)\n");
 	if (0 != ioctl(fd, STOP_SCAN_IOCTL, NULL)) {
 		perror("ioctl(STOP_SCAN_IOCTL)");
 		munmap(ptr, len);
@@ -70,10 +69,7 @@ main(void)
 		return EXIT_FAILURE;
 	}
 
-	printf("munmap(ptr, len)\n");
 	munmap(ptr, len);
-	printf("close(fd)\n");
-    close(fd);
-    return EXIT_SUCCESS;
-
+	close(fd);
+	return EXIT_SUCCESS;
 }

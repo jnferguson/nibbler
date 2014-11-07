@@ -32,9 +32,9 @@
 #include <nbd/thread.h>
 
 typedef struct {
-    struct mutex        lock;
-    struct list_head    head;
-    size_t              count;
+	struct mutex		lock;
+	struct list_head	head;
+	size_t				count;
 } pkt_metadata_t;
 
 signed int nbd_net_init(void);

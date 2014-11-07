@@ -16,8 +16,8 @@
 #define DEVICENAME "NIBBLER"
 
 typedef struct {
-    size_t  device_count;
-    uint8_t verbose;
+	size_t  device_count;
+	uint8_t verbose;
 } global_data_t;
 
 inline size_t get_device_count(void);
@@ -74,11 +74,11 @@ typedef ssize_t thread_id_t;
 
 typedef struct {
 	thread_id_t			id;
-	uint8_t             type;       // TYPE_IPV4 || TYPE_IPV6 
-	void*               data;       // the memory mapped into userspace
-	size_t              len;        // the usable portion of data
-	atomic_t            started;    // whether TX has started or not
-	struct list_head    list;       // next/prev pointers
+	uint8_t				type;	   // TYPE_IPV4 || TYPE_IPV6 
+	void*				data;	   // the memory mapped into userspace
+	size_t				len;		// the usable portion of data
+	atomic_t			started;	// whether TX has started or not
+	struct list_head	list;	   // next/prev pointers
 
 	// this union is so we can use the same
 	// structure for both ipv6 and ipv4.
@@ -87,13 +87,13 @@ typedef struct {
 	// i guess the performance hit from it
 	// may not be wise.
 	union {
-		ipv4_minmax_t   ipv4;   // these contain the network and broadcast
-		ipv6_minmax_t   ipv6;   // addresses for a scanned range
+		ipv4_minmax_t	ipv4;   // these contain the network and broadcast
+		ipv6_minmax_t	ipv6;   // addresses for a scanned range
 	} net_addr;
 
 	struct {
-		uint16_t source;            // the source and destination TCP port
-		uint16_t dest;              // we are scanning for. I guess it could be UDP two
+		uint16_t	source;			// the source and destination TCP port
+		uint16_t	dest;			  // we are scanning for. I guess it could be UDP two
 	} trans_addr;
 
 } pkt_data_t;

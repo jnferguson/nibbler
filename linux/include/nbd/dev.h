@@ -22,7 +22,7 @@
 #include <nbd/ioctl.h> // for type #define's
 
 typedef struct {
-	struct semaphore	sem;    // enforces one application per device
+	struct semaphore	sem;	// enforces one application per device
 	struct mutex		mutex;  // locked whenever the device accesses instance data
 	struct cdev*		cdev;
 	dev_t				num;
@@ -31,7 +31,7 @@ typedef struct {
 	size_t				dlen;
 	size_t				udlen;
 	ip_network_t		ndata;
-	pkt_data_t*		pkt;
+	pkt_data_t*			pkt;
 } nb_dev_t;
 
 #else

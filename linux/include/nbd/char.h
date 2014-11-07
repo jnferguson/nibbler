@@ -20,10 +20,10 @@ signed int nbd_char_init(void);
 signed int nbd_char_destroy(void);
 
 typedef struct {
-    nb_dev_t*       devices;
-    signed int      major;
-    struct class*   class;
-    struct mutex    ioctl_lock;
+	nb_dev_t*		devices;
+	signed int		major;
+	struct class*	class;
+	struct mutex	ioctl_lock;
 } char_metadata_t;
 
 #else

@@ -45,8 +45,8 @@ nbd_thread_init(void)
 
 	DBG("entered");
 
-    mutex_init(&m_data.lock);
-    INIT_LIST_HEAD(&m_data.head);
+	mutex_init(&m_data.lock);
+	INIT_LIST_HEAD(&m_data.head);
 	
 	mutex_lock(&m_data.lock);
 
@@ -145,22 +145,22 @@ nbd_thread_start(thread_data_t* td)
 signed int
 nbd_thread_del(thread_id_t id)
 {
-	threads_t*  cur     = NULL;
-	threads_t*  next    = NULL;
+	threads_t*  cur		= NULL;
+	threads_t*  next	= NULL;
 
 	DBG("entered");
 
-    mutex_lock(&m_data.lock);
-    list_for_each_entry_safe(cur, next, &m_data.head, list) {
+	mutex_lock(&m_data.lock);
+	list_for_each_entry_safe(cur, next, &m_data.head, list) {
 		if (cur->id == id) {
-        	list_del(&cur->list);
-        	thread_destroy(cur);
+			list_del(&cur->list);
+			thread_destroy(cur);
 			atomic_dec(&m_data.tids);
 			break;
 		}
-    }
+	}
 
-    mutex_unlock(&m_data.lock);
+	mutex_unlock(&m_data.lock);
 	DBG("exited 0");
 	return 0;
 }
