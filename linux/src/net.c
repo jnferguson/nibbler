@@ -34,24 +34,7 @@ typedef struct {
 } net_hw_t;
 
 
-/* 
- * Transmits a given sk_buff; based largely on af_packet.c:packet_direct_xmit()
- * & pktgen.c:pktgen_xmit()
- *
- * @params skb	- The sk_buff to transmit
- *
- * @returns 0 on success, or one of the following:
- * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- * THE INPUT SKB IS NEVER DEALLOCATED.
- * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- *
- * -EINVAL		One of more properties of the sk_buff were invalid
- * -ENETDOWN	The network is down
- * -ECANCELED	The sk_buff couldnt be 'linearized' or packet was dropped. 
- * -EAGAIN		The device/queue was busy or packet was 'policed', sk_buff; try again 
- * -EDQUOT		The sk_buff was transmitted, however we will start dropping packets soon. 
- */
-signed int
+static signed int
 tx_skb(struct sk_buff* skb)
 {
 	struct netdev_queue*    txq     	= NULL;
@@ -59,18 +42,20 @@ tx_skb(struct sk_buff* skb)
 	signed int				ret			= 0;
 	netdev_features_t 		features	= 0;
 
+	DBG("entered");
+
 	if (NULL == skb || NULL == skb->dev || 
 		NULL == skb->dev->netdev_ops || 
 		NULL == skb->dev->netdev_ops->ndo_start_xmit) {
-		//atomic_long_inc(&dev->tx_dropped);
-		//kfree_skb(skb);
+		kfree_skb(skb);
+		DBG("exited -EINVAL");
 		return -EINVAL;
 	}
 	dev = skb->dev;
 
 	if (unlikely(!netif_running(dev) || !netif_carrier_ok(dev))) {
-		//atomic_long_inc(&dev->tx_dropped);
-		//kfree_skb(skb);
+		kfree_skb(skb);
+		DBG("exited -ENETDOWN");
 		return -ENETDOWN;
 	}
 
@@ -85,7 +70,8 @@ tx_skb(struct sk_buff* skb)
  	 */
 	 if (skb_needs_linearize(skb, features) && __skb_linearize(skb)) {
 		//atomic_long_inc(&dev->tx_dropped);
-		//kfree_skb(skb);
+		kfree_skb(skb);
+		DBG("exited -ECANCELED");
 		return -ECANCELED;
 	}
 
@@ -97,16 +83,13 @@ tx_skb(struct sk_buff* skb)
 	if (unlikely(netif_xmit_frozen_or_stopped(txq))) {
 		HARD_TX_UNLOCK(dev, txq);
 		put_cpu();
-		local_bh_enable();		
+		local_bh_enable();
+		DBG("exited -EAGAIN");
 		return -EAGAIN;
 	}
 
-	// We increment the user's count
-	// to make sure consume_skb()
-	// does not free the skb.
-    atomic_inc(&skb->users);
-    ret = dev->netdev_ops->ndo_start_xmit(skb, dev);
-    atomic_dec(&skb->users);
+	ret = dev_queue_xmit(skb);
+    //ret = dev->netdev_ops->ndo_start_xmit(skb, dev);
 
     switch (ret) {
         case NETDEV_TX_OK:		
@@ -165,30 +148,17 @@ tx_skb(struct sk_buff* skb)
 		case NETDEV_TX_LOCKED:
         case NETDEV_TX_BUSY:
 			ret = -EAGAIN;
-        	//atomic_dec(&skb->users);
-            //kfree_skb(skb);
             break;
     }
 
 	HARD_TX_UNLOCK(dev, txq);
 	put_cpu();
 	local_bh_enable();
+	DBG("exited %d", ret);
 	return ret;
 }
 
-/* metric asstons of code seem to assume ethernet, expect the user to provide the network device and side-step the 
- * routing tables as a result. This function takes an IPv4 address and discerns the outbound path for it. Eventually,
- * we will be able to modify this slightly for multi-homed hosts with multiple paths to the destination to improve
- * performance.
- *
- * @param dest         - IPv4 destination address
- * @param hw_dest      - A pointer to the structure defined above that is L2 agnostic
- * @param devo         - Optional parameter; upon success returns a net_device** to the device to be used
- * @param rto          - Optional parameter; upon success returns a rtable** to the routing table to be used
- *
- * @returns 0 on success, <0 on failure.
- */
-signed int
+static signed int
 get_ipv4_hw_dest(uint32_t dest, net_hw_t* hw_dest, struct net_device** devo, struct rtable** rto)
 {
     struct net*         net = NULL;
@@ -197,8 +167,11 @@ get_ipv4_hw_dest(uint32_t dest, net_hw_t* hw_dest, struct net_device** devo, str
     struct neighbour*   ne  = NULL;
     uint32_t            nh  = 0;
 
+	DBG("entered");
+
     if (NULL == hw_dest) {
-        ERR("Provided invalid NULL parameter\n");
+        ERR("Provided invalid NULL parameter");
+		DBG("enxited -EINVAL");
         return -EINVAL;
     }
 
@@ -214,9 +187,10 @@ get_ipv4_hw_dest(uint32_t dest, net_hw_t* hw_dest, struct net_device** devo, str
     }
 
     if (NULL == rt || NULL == rt->dst.dev) {
-        ERR("Could not find a suitable route to the destination host\n");
         rtnl_unlock();
-        return -EHOSTUNREACH;
+		ERR("Could not find a suitable route to the destination host");
+		DBG("exited -EHOSTUNREACH"); 
+		return -EHOSTUNREACH;
     }
 
     dev = rt->dst.dev;
@@ -227,13 +201,15 @@ get_ipv4_hw_dest(uint32_t dest, net_hw_t* hw_dest, struct net_device** devo, str
     hw_dest->hw_addr = kzalloc(dev->addr_len, GFP_ATOMIC);
 
     if (NULL == hw_dest->hw_addr) {
-        ERR("Error allocating destination hardware address memory\n");
+        ERR("Error allocating destination hardware address memory");
         dev_put(dev);
         put_net(net);
         ip_rt_put(rt);
+		DBG("exited -ENOMEM");
         return -ENOMEM;
     }
 
+	ALO("hw_dest->hw_addr: %p %u bytes", hw_dest->hw_addr, dev->addr_len);
     hw_dest->hw_length = dev->addr_len;
 
     rcu_read_lock_bh();
@@ -249,6 +225,11 @@ get_ipv4_hw_dest(uint32_t dest, net_hw_t* hw_dest, struct net_device** devo, str
             dev_put(dev);
             put_net(net);
             rcu_read_unlock_bh();
+			FRE("hw_addr->hw_addr: %p", hw_dest->hw_addr);
+			kfree(hw_dest->hw_addr);
+			hw_dest->hw_addr = NULL;
+			DBG("exited %d", PTR_ERR(ne));
+
             return PTR_ERR(ne);
         }
     }
@@ -265,27 +246,11 @@ get_ipv4_hw_dest(uint32_t dest, net_hw_t* hw_dest, struct net_device** devo, str
     else
         ip_rt_put(rt);
 
+	DBG("exited 0");
     return 0;
 }
 
-/*
- * This function needs to be reworked such that it just returns the allocated sk_buff.
- * At present it takes a destination ipv4 address and the source/dest TCP ports, allocates
- * an sk_buff and transmits the buffer to the appropriate network device via ndo_start_xmit().
- *
- * It needs to be improved to not only *not* transmit the buffer, but some sort of abstraction 
- * needs to be introduced to allow for other transport protocols such as ICMP or UDP et al.
- *
- * TCP options are currently hard-coded and then commented out; packet size is important if youre
- * going to be sending billions of them.
- *
- * @param addr             - Destination IPv4 address in network byte order
- * @param dest             - Destintion TCP port in network byte order
- * @param source           - Source TCP port in network byte order
- *
- * @returns 0 on success, <0 on failure.
- */
-signed int
+static struct sk_buff*
 init_ipv4_skb(uint32_t addr, uint16_t dest, uint16_t source)
 {
     net_hw_t                dhw     = {NULL,0};
@@ -304,26 +269,33 @@ init_ipv4_skb(uint32_t addr, uint16_t dest, uint16_t source)
 //  uint8_t*                ptr     = NULL;
     ret = get_ipv4_hw_dest(addr, &dhw, &dev, &rt);
 
-    if (0 > ret)
-        return ret;
+	DBG("entered");
+
+    if (0 > ret) {
+		if (NULL != dhw.hw_addr) {
+			FRE("dhw.hw_addr %p", dhw.hw_addr);
+			dhw.hw_addr = NULL;
+		}
+
+		DBG("exited NULL");
+        return NULL;
+	}
 
     res     = LL_RESERVED_SPACE(dev);
     tlen    = dev->needed_tailroom;
     len     = res + tlen + sizeof(struct iphdr) + sizeof(struct tcphdr); //+ plen;
 
     if (len > dev->mtu) { // ?? dev->mtu + res ??
-        ERR("Length exceeds device MTU ...?\n");
-        ret = -EINVAL;
+        ERR("Length exceeds device MTU ...?");
         goto err;
     }
 
-    INF("Routing outbound packets through device %s\n", dev->name);
+    DBG("Routing outbound packets through device %s", dev->name);
 
     skb = alloc_skb(len, GFP_ATOMIC);
 
     if (NULL == skb) {
-        ERR("Error allocating sk_buff structure\n");
-        ret = -ENOMEM;
+        ERR("Error allocating sk_buff structure");
         goto err;
     }
 
@@ -331,10 +303,27 @@ init_ipv4_skb(uint32_t addr, uint16_t dest, uint16_t source)
     skb->dev            = dev;
     skb->protocol       = ETH_P_IP; 
     skb->priority       = TC_PRIO_CONTROL;
-    skb->pkt_type       = PACKET_OUTGOING;
+
+	// For loopback traffic this appears to 
+	// have to be PACKET_HOST or else it seems
+	// to get dropped by a kernel filter?
+	// Inversely, for real devices it needs
+	// to be PACKET_OUTGOING.
+	// Amusingly, this would imply that the
+	// pktgen.c code in the kernel is not
+	// routinely used other than with loopback
+	// traffic? It's not 100% clear that the
+	// packet doesn't actually go out, it just
+	// doesn't show up in tcpdump et al, which
+	// despite some mailing list conjectures it
+	// should. It's also possible that the code
+	// in the mainline kernel is purposefully 
+	// broken to "prevent" people from using it
+	// to DoS others. 
+    skb->pkt_type       = PACKET_HOST; //OUTGOING;
 
     skb_dst_set(skb, &rt->dst);
-    //skb_set_queue_mapping(skb, smp_processor_id()); // ??
+    skb_set_queue_mapping(skb, get_cpu()); // ??
     skb_reserve(skb, len);
     skb_set_mac_header(skb, 0);
 
@@ -342,9 +331,11 @@ init_ipv4_skb(uint32_t addr, uint16_t dest, uint16_t source)
 
     if (0 > ret) {
         kfree_skb(skb);
-        ERR("Error creating hardware header in dev_hard_header()\n");
+        ERR("Error creating hardware header in dev_hard_header()");
         goto err;
     }
+
+	FRE("dhw.hw_addr: %p", dhw.hw_addr);
 
 	kfree(dhw.hw_addr);
 	dhw.hw_addr = NULL;
@@ -365,15 +356,14 @@ init_ipv4_skb(uint32_t addr, uint16_t dest, uint16_t source)
     iph->protocol   = IPPROTO_TCP;
     iph->saddr      = dev->ip_ptr->ifa_list->ifa_address;
     iph->daddr      = addr;
-    //iph->id         = cpu_to_be16(44139); // FIXME
     iph->frag_off   = cpu_to_be16(IP_DF);
     iph->tot_len    = cpu_to_be16(sizeof(struct iphdr) + sizeof(struct tcphdr)); //+plen);
     iph->check      = 0;
-    iph->check      = ip_fast_csum((void *)iph, iph->ihl);
 
 	get_random_bytes(&iph->id, sizeof(iph->id));
+	
+	iph->check		= ip_fast_csum((void*)iph, iph->ihl);
 
-	//tcph->seq = cpu_to_be32(1185973523);
     tcph->ack_seq = 0;
     //((u_int8_t *)tcph)[13] = 0;
     tcph->dest = dest;
@@ -381,7 +371,6 @@ init_ipv4_skb(uint32_t addr, uint16_t dest, uint16_t source)
     tcph->syn = 1;
     tcph->rst = 0;
     tcph->ack = 0;
-   	//tcph->window = cpu_to_be16(29200);
     tcph->urg_ptr = 0;
     tcph->check = 0;
     tcph->doff = (sizeof(struct tcphdr))/4; //+plen)/4;
@@ -396,47 +385,185 @@ init_ipv4_skb(uint32_t addr, uint16_t dest, uint16_t source)
     tcph->check 	= tcp_v4_check(sizeof(struct tcphdr)/*+plen*/, iph->saddr, iph->daddr,
 								csum_partial((char*)tcph, sizeof(struct tcphdr)/*+plen*/, 0));
 
-	tx_skb(skb);
-	//tx_skb(skb);
-	atomic_dec(&skb->users);
-	kfree_skb(skb);
-    dev_put(dev);
-    return 0;
+	DBG("exited skb");
+    return skb;
 
 err:
+	FRE("dhw.hw_addr: %p", dhw.hw_addr);
+	kfree(dhw.hw_addr);
+	dhw.hw_addr = NULL;
+
     dev_put(dev);
     ip_rt_put(rt);
-    return ret;
+	DBG("exited NULL");
+    return NULL;
+}
+
+signed int
+tx_init(pkt_data_t* pd)
+{
+	struct sk_buff* skb = NULL;
+	uint32_t		cip	= 0;
+	signed int 		ret = 0;
+
+	DBG("entered");
+
+	if (NULL == pd) {
+		DBG("exited -EINVAL");
+		return -EINVAL;
+	}
+
+	if (1 == atomic_read(&pd->started)) {
+		DBG("exited 0");
+		return 0;
+	}
+
+	atomic_set(&pd->started, 1);
+
+	cip = pd->net_addr.ipv4.min.s_addr;
+
+	set_current_state(TASK_INTERRUPTIBLE);
+
+	while (1 == atomic_read(&pd->started) && !kthread_should_stop()) {
+		if (cip >= pd->net_addr.ipv4.max.s_addr) {
+			DBG("finished scan.");
+			break;
+		}
+
+		skb = init_ipv4_skb(cpu_to_be32(cip++), 
+							cpu_to_be16(pd->trans_addr.dest), 
+							cpu_to_be16(pd->trans_addr.source));
+
+		if (NULL == skb) {
+			DBG("NULL skb.");
+			goto tx_abort;
+		}
+
+		ret = tx_skb(skb);
+
+		switch (ret) {
+			case -ECANCELED:
+				DBG("Dropped packet to %#x", --cip);
+				break;
+			case -EAGAIN:
+				DBG("Other transient error while sending to %#x", --cip);
+		        atomic_dec(&skb->users);
+		        dev_put(skb->dev);
+		        kfree_skb(skb);
+				break;
+
+			case -EDQUOT:
+				DBG("Will start dropping packets soon at %#x", cip);
+				break;
+			case -EINVAL:
+			case -ENETDOWN:
+				DBG("Initialization/etc error while trying to send to %#x", --cip);
+				goto tx_abort;
+				break;
+			default:
+    		    atomic_dec(&skb->users);
+		        dev_put(skb->dev);
+		        kfree_skb(skb);
+				break;
+		}
+		cond_resched(); 
+	}
+
+tx_abort:
+	set_current_state(TASK_INTERRUPTIBLE);
+
+	while (!kthread_should_stop()) {
+		schedule();
+		set_current_state(TASK_INTERRUPTIBLE);
+	}
+
+	set_current_state(TASK_RUNNING);
+
+	DBG("exited 0");
+	return 0;
+}
+
+static signed int
+tx_destroy(pkt_data_t* pd)
+{
+	DBG("entered");
+
+	if (NULL == pd) {
+		DBG("exited -EINVAL");
+		return -EINVAL;
+	}
+
+	atomic_set(&pd->started, 0);
+	pd = NULL;
+	
+	DBG("exited 0");
+	return 0;
+}
+
+static signed int
+start_tx(void)
+{
+	pkt_data_t* 	pd = NULL;
+	thread_data_t	td = {0};
+
+	DBG("entered");
+
+    mutex_lock(&m_data.lock);
+
+    list_for_each_entry(pd, &m_data.head, list) {
+		if (0 == atomic_read(&pd->started))  {
+			td.name 		= "knibbler_tx/%u";
+			td.ops.init		= (signed int(*)(void*))&tx_init;
+			td.ops.destroy	= (signed int(*)(void*))&tx_destroy;
+			td.data			= (void*)pd;
+		
+			if (0 > nbd_thread_start(&td)) 
+				ERR("Error starting TX thread...");
+
+		}
+	}
+
+	mutex_unlock(&m_data.lock);
+	DBG("exited 0");
+	return 0;
 }
 
 signed int
 nbd_net_add(nb_dev_t* nbd)
 {
-    pkt_data_t* pd  = NULL;
-    size_t      cnt = 0;
+    pkt_data_t*	pd  = NULL;
+    size_t     	cnt = 0;
 
-    if (NULL == nbd)
+	DBG("entered");
+
+    if (NULL == nbd) {
+		DBG("exited -EINVAL");
         return -EINVAL;
-    pd = kzalloc(sizeof(pkt_data_t), GFP_KERNEL);
+	}
 
-    if (NULL == pd)
+    pd = vzalloc(sizeof(pkt_data_t));
+
+    if (NULL == pd) {
+		DBG("exited -ENOMEM");
         return -ENOMEM;
+	}
 
-    ALO("pkt_data_t pointer %p len %lu\n", pd, sizeof(pkt_data_t));
+    ALO("pkt_data_t pointer %p len %lu", pd, sizeof(pkt_data_t));
 
     mutex_lock(&nbd->mutex);
 
     if (NULL != nbd->pkt) {
-        ERR("Error while adding packet data for device, it alread exists?\n");
         mutex_unlock(&nbd->mutex);
+		DBG("exited -EINVAL");
         return -EINVAL;
     }
 
     if (TYPE_IPV4 != nbd->ndata.type) {
-        ERR("IPV6 Support currently unimplemented.\n");
-        FRE("pkt_data_t pointer %p\n", pd);
-        kfree(pd);
+        ERR("IPV6 Support currently unimplemented.");
+        FRE("pkt_data_t pointer %p", pd);
+        vfree(pd);
         mutex_unlock(&nbd->mutex);
+		DBG("exited -EINVAL");
         return -EINVAL;
     }
 
@@ -446,10 +573,12 @@ nbd_net_add(nb_dev_t* nbd)
     pd->trans_addr.dest             = nbd->ndata.dport;
     pd->data                        = nbd->data;
     pd->len                         = nbd->udlen;
-
-    nbd->pkt                = pd;
+	
+    nbd->pkt                		= pd;
 
     mutex_unlock(&nbd->mutex);
+
+	atomic_set(&pd->started, 0);
 
     mutex_lock(&m_data.lock);
     list_add_tail(&pd->list, &m_data.head);
@@ -457,9 +586,11 @@ nbd_net_add(nb_dev_t* nbd)
     cnt = m_data.count;
     mutex_unlock(&m_data.lock);
 
-    if (1 == m_data.count)
+    if (1 == m_data.count) 
         start_rx();
 
+	start_tx();
+	DBG("exited 0");
     return 0;
 }
 
@@ -468,13 +599,18 @@ nbd_net_del(pkt_data_t* pd)
 {
     size_t cnt = 0;
 
-    if (NULL == pd)
+	DBG("entered");
+
+    if (NULL == pd) {
+		DBG("exited -EINVAL");
         return -EINVAL;
+	}
 
     mutex_lock(&m_data.lock);
 
     if (0 == m_data.count) {
         mutex_unlock(&m_data.lock);
+		DBG("exited -EINVAL");
         return -EINVAL;
     }
 
@@ -484,23 +620,35 @@ nbd_net_del(pkt_data_t* pd)
 
     mutex_unlock(&m_data.lock);
 
-    if (0 == cnt)
+    if (0 == cnt) {
         stop_rx();
+	}
 
+	(void)nbd_thread_del(pd->id);
+	FRE("Releasing pkt_data_t pointer: %p", pd);
+	pd->data = NULL;
+	vfree(pd);
+	pd = NULL;
+
+	DBG("exited 0");
     return 0;
 }
 
 static void
 start_rx(void)
 {
+	DBG("entered");
     dev_add_pack(&ipv4_pkt_type);
+	DBG("exited (void)");
     return;
 }
 
 static void
 stop_rx(void)
 {
+	DBG("entered");
     dev_remove_pack(&ipv4_pkt_type);
+	DBG("exited (void)");
     return;
 }
 
@@ -527,77 +675,89 @@ stop_rx(void)
 static signed int
 ipv4_pkt_handler(struct sk_buff* s, struct net_device* d, struct packet_type* p, struct net_device* o)
 {
-    pkt_data_t*     pd      = NULL;
-    struct iphdr*   iph     = NULL;
-    struct tcphdr*  tcph    = NULL;
+    pkt_data_t*		pd      = NULL;
+    struct iphdr*  	iph     = NULL;
+    struct tcphdr*	tcph    = NULL;
 
-    if (PACKET_HOST != s->pkt_type)
-        return NET_RX_SUCCESS;
+	DBG("entered");
+
+	if (PACKET_HOST != s->pkt_type) {
+		DBG("exited NET_RX_SUCCESS");
+		return NET_RX_SUCCESS;
+	}
 
     // well.. its not for us, that is for certain.
-    if (unlikely(s->len < sizeof(struct iphdr)+sizeof(struct tcphdr)))
+    if (unlikely(s->len < sizeof(struct iphdr)+sizeof(struct tcphdr))) {
+		DBG("exited NET_RX_SUCCESS");
         return NET_RX_SUCCESS;
+	}
 
     iph     = ip_hdr(s);
     tcph    = tcp_hdr(s);
 
-    printk(KERN_ALERT "NIBBLER[RCV]: %#x:%hu %#x:%hu\n", iph->saddr, htons(tcph->source), iph->daddr, htons(tcph->dest));
-
-    // ugh.. this would be so much less of a performance impact if we didnt {need, want} to 
-    // support scanning more than one network at a time...
     mutex_lock(&m_data.lock);
-    list_for_each_entry(pd, &m_data.head, list) {
-        if (TYPE_IPV4 == pd->type ) {
-            if (pd->net_addr.ipv4.min.s_addr <= iph->saddr && pd->net_addr.ipv4.max.s_addr >= iph->saddr)
-                if (likely(pd->trans_addr.source == tcph->dest && pd->trans_addr.dest == tcph->source)) {
-                    uint32_t cnt = iph->saddr - pd->net_addr.ipv4.min.s_addr;
-                    uint32_t byte = cnt / 8;
-                    uint32_t bit =  cnt % 8;
 
-                    SET_BIT(pd->data, byte, bit);
-                    mutex_unlock(&m_data.lock);
-                    skb_orphan(s);
-                    kfree_skb(s);
-                    return NET_RX_SUCCESS;
-                }
-        }
+    list_for_each_entry(pd, &m_data.head, list) {
+			uint16_t sport = pd->trans_addr.source;
+			uint16_t dport = pd->trans_addr.dest;
+		    uint32_t min = pd->net_addr.ipv4.min.s_addr;
+			uint32_t max = pd->net_addr.ipv4.max.s_addr;
+
+        if (TYPE_IPV4 == pd->type && IPPROTO_TCP == iph->protocol) {
+			if (min <= cpu_to_be32(iph->saddr) && max >= cpu_to_be32(iph->saddr)) {
+				if (0 == tcph->rst && 1 == tcph->syn && 1 == tcph->ack) {
+                	if (likely(sport == cpu_to_be16(tcph->dest) && dport == cpu_to_be16(tcph->source))) {
+                	    uint32_t cnt = cpu_to_be32(iph->saddr) - pd->net_addr.ipv4.min.s_addr;
+                	    uint32_t byte = cnt / 8;
+                	    uint32_t bit =  cnt % 8;
+
+						printk(KERN_INFO "NIBBLER[DBG]: MATCHED %#x\n", cpu_to_be32(iph->saddr));
+                    	SET_BIT(pd->data, byte, bit);
+                    	mutex_unlock(&m_data.lock);
+                    	skb_orphan(s);
+                    	kfree_skb(s);
+						DBG("exited NET_RX_SUCCESS");
+                    	return NET_RX_SUCCESS;
+                	}
+        		}
+			}
+		}
     }
 
     mutex_unlock(&m_data.lock);
+	DBG("exited NET_RX_SUCCESS");
     return NET_RX_SUCCESS;
 }
 
 signed int
 nbd_net_init(void)
 {
+	DBG("entered");
     mutex_init(&m_data.lock);
     INIT_LIST_HEAD(&m_data.head);
-    //start_rx();
-
-    init_ipv4_skb(cpu_to_be32(0xd822b52d), cpu_to_be16(80), cpu_to_be16(41671));
-     //0x7f000001),cpu_to_be16(80), cpu_to_be16(45733));    
-    //stop_rx();
+    DBG("exited 0");
     return 0;
 }
 
 signed int
 nbd_net_destroy(void)
 {
-    pkt_data_t* cur     = NULL;
-    pkt_data_t* next    = NULL;
+    pkt_data_t*	cur     = NULL;
+    pkt_data_t*	next    = NULL;
 
-    //stop_rx();
+	DBG("entered");
     mutex_lock(&m_data.lock);
 
     list_for_each_entry_safe(cur, next, &m_data.head, list) {
         list_del(&cur->list);
-        FRE("cur pointer %p\n", cur);
-        kfree(cur);
+        FRE("pkt_data_t pointer %p", cur);
+        vfree(cur);
         cur = NULL;
     }
 
     mutex_unlock(&m_data.lock);
     mutex_destroy(&m_data.lock);
 
+	DBG("exited 0");
     return 0;
 }

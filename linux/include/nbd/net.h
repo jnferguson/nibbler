@@ -24,8 +24,12 @@
 #include <linux/route.h>
 #include <linux/pkt_sched.h>
 #include <linux/random.h>
+#include <asm/atomic.h>
+#include <linux/kthread.h>
 
+#include <nbd/global.h>
 #include <nbd/dev.h>
+#include <nbd/thread.h>
 
 typedef struct {
     struct mutex        lock;

@@ -2,6 +2,7 @@
 #include <nbd/dev.h>
 #include <nbd/net.h>
 #include <nbd/char.h>
+#include <nbd/thread.h>
 
 MODULE_AUTHOR("jf@ownco.net");
 MODULE_DESCRIPTION("Nibbler Scanner Device Driver");
@@ -37,9 +38,9 @@ plog(char* fmt, ...)
 {
     va_list args = {{0}};
 
-    if (! is_verbose())
+    if (! is_verbose()) 
         return;
-
+	
     va_start(args, fmt);
     vprintk(fmt, args);
     va_end(args);
@@ -56,47 +57,58 @@ nb_init(void)
     g_vars.verbose      = verbose;
 
     if (device_cnt < 1) {
-        ERR("Invalid number of devices requested: %u\n", device_cnt);
+        ERR("Invalid number of devices requested: %u", device_cnt);
         return -EINVAL;
     }
 
     ret = nbd_char_init();
 
     if (0 > ret) {
-        ERR("Failed to initialize character device\n");
+        ERR("Failed to initialize character device");
         return ret;
     }
     ret = nbd_net_init();
 
     if (0 > ret) {
         ERR("Failed to initialize network components");
-        return ret;
+    	nbd_char_destroy();
+	    return ret;
     }
 
-    INF("Successfully inserted module.\n");
+	ret = nbd_thread_init();
+
+	if (0 > ret) {
+		ERR("Failed to initialize threading components");
+		nbd_char_destroy();
+		nbd_net_destroy();
+		return ret;
+	}
+
+    INF("Successfully inserted module.");
     return 0;
 }
 
 static void __exit
 nb_exit(void)
 {
-    signed int ret = 0;
+    signed int 	ret = 0;
 
     ret = nbd_net_destroy();
 
-#ifdef DEBUG
     if (0 > ret)
-        ERR("Failed to properly deinitialize network components.\n");
-#endif
+        ERR("Failed to properly deinitialize network components.");
 
     ret = nbd_char_destroy();
 
-#ifdef DEBUG
     if (0 > ret)
-        ERR("Failed to properly deinitialize character device.\n");
-#endif
+        ERR("Failed to properly deinitialize character device.");
 
-    INF("Successfully removed module from kernel.\n");
+	ret = nbd_thread_destroy();
+
+	if (0 > ret)
+		ERR("Failed to properly deinitialize threading components");
+
+    INF("Successfully removed module from kernel.");
     return;
 }
 

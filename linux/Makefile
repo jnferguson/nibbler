@@ -1,6 +1,6 @@
 EXTRA_CFLAGS := -I$(src)/include
 TARGET := nbdev
-nbdev-objs := src/net.o src/char.o src/main.o
+nbdev-objs := src/net.o src/char.o src/main.o src/thread.o
 obj-m := $(TARGET).o
 
 

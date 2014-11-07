@@ -7,13 +7,16 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include <nbd/ioctl.h>
 
 signed int
 main(void)
 {
-    char*           dev = "/dev/NIBBLER4";
+    char*           dev = "/dev/NIBBLER0";
     signed int      fd  = open(dev, O_RDWR);
     ip_network_t    net = {0};
     uint64_t        len = 0;
@@ -25,9 +28,10 @@ main(void)
     }
 
     net.type        = TYPE_IPV4;
-    net.net.ipv4    = 0x7FFF0001;
-    net.mask        = 8;
-    net.dport       = 1;
+    net.net.ipv4    = htonl(inet_addr("127.0.0.1")); //0x7FFF0001;
+    net.mask        = 16;
+    net.dport       = 80;
+	net.sport		= 3001;
 
     if (0 != ioctl(fd, SET_IP_NETWORK_IOCTL, &net)) {
         perror("ioctl(SET_IP_NETWORK_IOCTL)");
@@ -41,7 +45,7 @@ main(void)
         return EXIT_FAILURE;
     }
 
-    ptr = mmap(NULL, len, PROT_NONE, MAP_SHARED, fd, 0);
+    ptr = mmap(NULL, len, PROT_READ, MAP_SHARED, fd, 0);
 
     if (MAP_FAILED == ptr) {
         perror("mmap()");
@@ -49,8 +53,26 @@ main(void)
         return EXIT_FAILURE;
     }
 
-    printf("[%u] ptr: %p\n", getpid(), ptr);
-    sleep(60*5);
+	if (0 != ioctl(fd, START_SCAN_IOCTL, NULL)) {
+		perror("ioctl(START_SCAN_IOCTL)");
+		munmap(ptr, len);
+		close(fd);
+		return EXIT_FAILURE;
+	}
+
+	sleep(1*20);
+
+	printf("ioctl(STOP_SCAN_IOCTL)\n");
+	if (0 != ioctl(fd, STOP_SCAN_IOCTL, NULL)) {
+		perror("ioctl(STOP_SCAN_IOCTL)");
+		munmap(ptr, len);
+		close(fd);
+		return EXIT_FAILURE;
+	}
+
+	printf("munmap(ptr, len)\n");
+	munmap(ptr, len);
+	printf("close(fd)\n");
     close(fd);
     return EXIT_SUCCESS;
 
