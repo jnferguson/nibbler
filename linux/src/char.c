@@ -17,13 +17,13 @@ static signed int char_vmem(nb_dev_t*, struct vm_area_struct*);
 
 static struct file_operations nb_ops =
 {
-	.owner				= THIS_MODULE,
-	.open				= char_open,
-	.release			= char_close,
-	.poll				= NULL,
-	.compat_ioctl		= NULL,
-	.unlocked_ioctl		= char_ioctl,
-	.mmap				= char_mmap
+	.owner			= THIS_MODULE,
+	.open			= char_open,
+	.release		= char_close,
+	.poll			= NULL,
+	.compat_ioctl	= NULL,
+	.unlocked_ioctl	= char_ioctl,
+	.mmap			= char_mmap
 };
 
 static char_metadata_t  m_data	  = {NULL, 0, NULL, {{0}}};
