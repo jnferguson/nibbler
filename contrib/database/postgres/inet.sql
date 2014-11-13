@@ -27,9 +27,9 @@ CREATE TABLE registry (
 
 CREATE FUNCTION getRegistryId(r VARCHAR(32)) RETURNS BIGINT AS $$
 DECLARE 
-    retval BIGINT;
+	retval BIGINT;
 BEGIN
-    SELECT id INTO retval FROM registry WHERE UPPER(name) = UPPER(r);
+	SELECT id INTO retval FROM registry WHERE UPPER(name) = UPPER(r);
 RETURN retval;
 END;
 $$ LANGUAGE plpgsql;
@@ -44,18 +44,18 @@ CREATE TABLE entry_status_type (
 
 CREATE FUNCTION getEntryStatusTypeId(t VARCHAR(32)) RETURNS BIGINT AS $$
 DECLARE
-    retval BIGINT;
+	retval BIGINT;
 BEGIN
-    SELECT id INTO retval FROM entry_status_type WHERE UPPER(name) = UPPER(t);
+	SELECT id INTO retval FROM entry_status_type WHERE UPPER(name) = UPPER(t);
 RETURN retval;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE SEQUENCE country_codes_seq;
 CREATE TABLE country_codes (
-    id BIGINT NOT NULL DEFAULT NEXTVAL('country_codes_seq'),
-    name VARCHAR(64) NOT NULL CHECK (name <> '') UNIQUE,
-    alpha2 CHAR(2) NOT NULL CHECK (alpha2 <> '') UNIQUE,
+	id BIGINT NOT NULL DEFAULT NEXTVAL('country_codes_seq'),
+	name VARCHAR(64) NOT NULL CHECK (name <> '') UNIQUE,
+	alpha2 CHAR(2) NOT NULL CHECK (alpha2 <> '') UNIQUE,
 	alpha3 CHAR(3) NOT NULL CHECK (alpha3 <> '') UNIQUE,
 	code SMALLINT NOT NULL CHECK (code <> 0) UNIQUE,
 	iso_cc CHAR(2) NOT NULL CHECK (iso_cc <> ''),
@@ -66,9 +66,9 @@ CREATE TABLE country_codes (
 
 CREATE FUNCTION getCountryCodeId(c CHAR(2)) RETURNS BIGINT AS $$
 DECLARE
-    retval BIGINT;
+	retval BIGINT;
 BEGIN
-    SELECT id INTO retval FROM country_codes WHERE UPPER(iso_cc) = UPPER(c);
+	SELECT id INTO retval FROM country_codes WHERE UPPER(iso_cc) = UPPER(c);
 RETURN retval;
 END;
 $$ LANGUAGE plpgsql;
@@ -76,46 +76,46 @@ $$ LANGUAGE plpgsql;
 
 CREATE SEQUENCE record_seq;
 CREATE TABLE records (
-    id BIGINT NOT NULL DEFAULT nextval('record_seq'),
-    type BIGINT NOT NULL,
-    registry BIGINT NOT NULL,
-    etype BIGINT NOT NULL,
-    country BIGINT NOT NULL,
+	id BIGINT NOT NULL DEFAULT nextval('record_seq'),
+	type BIGINT NOT NULL,
+	registry BIGINT NOT NULL,
+	etype BIGINT NOT NULL,
+	country BIGINT NOT NULL,
 	rec_data VARCHAR(32) NOT NULL,
 	count BIGINT DEFAULT 1,
 	scale BIGINT DEFAULT 1,
-    CONSTRAINT record_id_pkey PRIMARY KEY(id),
-    FOREIGN KEY (type) REFERENCES record_type (id) ON DELETE RESTRICT,
-    FOREIGN KEY (registry) REFERENCES registry (id) ON DELETE RESTRICT,
-    FOREIGN KEY (etype) REFERENCES entry_status_type (id) ON DELETE RESTRICT,
-    FOREIGN KEY (country) REFERENCES country_codes (id) ON DELETE RESTRICT
+	CONSTRAINT record_id_pkey PRIMARY KEY(id),
+	FOREIGN KEY (type) REFERENCES record_type (id) ON DELETE RESTRICT,
+	FOREIGN KEY (registry) REFERENCES registry (id) ON DELETE RESTRICT,
+	FOREIGN KEY (etype) REFERENCES entry_status_type (id) ON DELETE RESTRICT,
+	FOREIGN KEY (country) REFERENCES country_codes (id) ON DELETE RESTRICT
 );
 
 CREATE FUNCTION createNewRecord(t VARCHAR(32), 
-								r VARCHAR(32), 
-								e VARCHAR(32), 
-								c CHAR(2),
-								d VARCHAR(32),
-								o BIGINT DEFAULT 1,
-								s BIGINT DEFAULT 1) RETURNS BIGINT AS $$
+				r VARCHAR(32), 
+				e VARCHAR(32), 
+				c CHAR(2),
+				d VARCHAR(32),
+				o BIGINT DEFAULT 1,
+				s BIGINT DEFAULT 1) RETURNS BIGINT AS $$
 DECLARE
 	retval BIGINT;
 BEGIN
 	INSERT INTO records (type,registry,etype,country,rec_data,count,scale) 
 		VALUES (	(SELECT getRecordTypeId(t)), 
-					(SELECT getRegistryId(r)), 
-					(SELECT getEntryStatusTypeId(e)), 
-					(SELECT getCountryCodeId(c)), d, o, s) RETURNING id INTO retval;
+				(SELECT getRegistryId(r)), 
+				(SELECT getEntryStatusTypeId(e)), 
+				(SELECT getCountryCodeId(c)), d, o, s) RETURNING id INTO retval;
 RETURN retval;
 END;
 $$ LANGUAGE plpgsql;
 
 GRANT INSERT, SELECT, UPDATE, DELETE,TRUNCATE,REFERENCES ON
-        country_codes,entry_status_type,record_type,records,registry
+		country_codes,entry_status_type,record_type,records,registry
 TO inet_rw;
 
 GRANT USAGE,SELECT,UPDATE on 
-        record_type_seq, registry_seq, entry_status_type_seq, country_codes_seq,record_seq 
+		record_type_seq, registry_seq, entry_status_type_seq, country_codes_seq,record_seq 
 TO inet_rw;
 
 GRANT CREATE,CONNECT ON DATABASE inet TO inet_rw;
@@ -123,18 +123,18 @@ GRANT EXECUTE ON FUNCTION getRecordTypeId(VARCHAR(32)) TO inet_rw;
 GRANT EXECUTE ON FUNCTION getEntryStatusTypeId(VARCHAR(32)) TO inet_rw;
 GRANT EXECUTE ON FUNCTION getCountryCodeId(CHAR(2)) TO inet_rw;
 GRANT EXECUTE ON FUNCTION createNewRecord(  VARCHAR(32),
-                                            VARCHAR(32), 
-                                            VARCHAR(32), 
-                                            CHAR(2), 
-                                            VARCHAR(32), 
-                                            BIGINT, 
-                                            BIGINT) 
+											VARCHAR(32), 
+											VARCHAR(32), 
+											CHAR(2), 
+											VARCHAR(32), 
+											BIGINT, 
+											BIGINT) 
 TO inet_rw;
 
 GRANT SELECT ON country_codes,entry_status_type,record_type,records,registry TO inet_ro;
 
 GRANT USAGE,SELECT on 
-        record_type_seq, registry_seq, entry_status_type_seq, country_codes_seq,record_seq 
+		record_type_seq, registry_seq, entry_status_type_seq, country_codes_seq,record_seq 
 TO inet_ro;
 
 GRANT CONNECT ON DATABASE inet TO inet_ro;
