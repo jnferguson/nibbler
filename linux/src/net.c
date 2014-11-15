@@ -3,15 +3,15 @@
 #include <nbd/dev.h>
 #include <nbd/bitops.h>
 
-static signed int ipv4_pkt_handler( struct sk_buff*,
-									struct net_device*,
-									struct packet_type*,
-									struct net_device*);
+static signed int ipv4_pkt_handler( 	struct sk_buff*,
+										struct net_device*,
+										struct packet_type*,
+										struct net_device*);
 
-//static signed int ipv6_pkt_handler( struct sk_buff*,
-//								  struct net_device*, 
-//								  struct packet_type*, 
-//								  struct net_device*);
+//static signed int ipv6_pkt_handler( 	struct sk_buff*,
+//										struct net_device*, 
+//										struct packet_type*, 
+//										struct net_device*);
 
 static void start_rx(void);
 static void stop_rx(void);
@@ -26,7 +26,7 @@ static struct packet_type ipv4_pkt_type = {
 //  .func = &ipv6_pkt_handler
 //};
 
-static pkt_metadata_t m_data = {{{0}},{0},0};
+static pkt_metadata_t m_data; // = {{{{0}}},{{0}},0,0};
 
 typedef struct {
 	void*	   hw_addr;
@@ -88,8 +88,8 @@ tx_skb(struct sk_buff* skb)
 		return -EAGAIN;
 	}
 
-	ret = dev_queue_xmit(skb);
-	//ret = dev->netdev_ops->ndo_start_xmit(skb, dev);
+	//ret = dev_queue_xmit(skb);
+	ret = dev->netdev_ops->ndo_start_xmit(skb, dev);
 
 	switch (ret) {
 		case NETDEV_TX_OK:		
@@ -405,6 +405,7 @@ tx_init(pkt_data_t* pd)
 {
 	struct sk_buff*		skb	= NULL;
 	uint32_t			cip	= 0;
+	uint32_t			bip = 0;
 	signed int			ret	= 0;
 
 	DBG("entered");
@@ -422,6 +423,7 @@ tx_init(pkt_data_t* pd)
 	atomic_set(&pd->started, 1);
 
 	cip = pd->net_addr.ipv4.min.s_addr;
+	bip = cip;
 
 	set_current_state(TASK_INTERRUPTIBLE);
 
@@ -431,6 +433,9 @@ tx_init(pkt_data_t* pd)
 			break;
 		}
 
+		if (1 == ((cip - bip) / pd->progress_step))
+			atomic_inc(&pd->progress);
+			
 		skb = init_ipv4_skb(cpu_to_be32(cip++), 
 							cpu_to_be16(pd->trans_addr.dest), 
 							cpu_to_be16(pd->trans_addr.source));
@@ -509,7 +514,7 @@ start_tx(void)
 
 	DBG("entered");
 
-	mutex_lock(&m_data.lock);
+	read_lock_irqsave(&m_data.lock, m_data.flags);
 
 	list_for_each_entry(pd, &m_data.head, list) {
 		if (0 == atomic_read(&pd->started))  {
@@ -524,7 +529,7 @@ start_tx(void)
 		}
 	}
 
-	mutex_unlock(&m_data.lock);
+	read_unlock_irqrestore(&m_data.lock, m_data.flags);
 	DBG("exited 0");
 	return 0;
 }
@@ -574,18 +579,18 @@ nbd_net_add(nb_dev_t* nbd)
 	pd->trans_addr.dest				= nbd->ndata.dport;
 	pd->data						= nbd->data;
 	pd->len							= nbd->udlen;
-	
+	pd->progress_step				= (1 << (32 - nbd->ndata.mask)) / 100; 
 	nbd->pkt						= pd;
 
 	mutex_unlock(&nbd->mutex);
-
+	atomic_set(&pd->progress, 0);
 	atomic_set(&pd->started, 0);
 
-	mutex_lock(&m_data.lock);
+	write_lock_irqsave(&m_data.lock, m_data.flags);
 	list_add_tail(&pd->list, &m_data.head);
 	m_data.count += 1;
 	cnt = m_data.count;
-	mutex_unlock(&m_data.lock);
+	write_unlock_irqrestore(&m_data.lock, m_data.flags);
 
 	if (1 == m_data.count) 
 		start_rx();
@@ -607,10 +612,10 @@ nbd_net_del(pkt_data_t* pd)
 		return -EINVAL;
 	}
 
-	mutex_lock(&m_data.lock);
+	write_lock_irqsave(&m_data.lock, m_data.flags);
 
 	if (0 == m_data.count) {
-		mutex_unlock(&m_data.lock);
+		write_unlock_irqrestore(&m_data.lock, m_data.flags);
 		DBG("exited -EINVAL");
 		return -EINVAL;
 	}
@@ -619,7 +624,7 @@ nbd_net_del(pkt_data_t* pd)
 	m_data.count -= 1;
 	cnt = m_data.count;
 
-	mutex_unlock(&m_data.lock);
+	write_unlock_irqrestore(&m_data.lock, m_data.flags);
 
 	if (0 == cnt) {
 		stop_rx();
@@ -696,7 +701,7 @@ ipv4_pkt_handler(struct sk_buff* s, struct net_device* d, struct packet_type* p,
 	iph	 = ip_hdr(s);
 	tcph	= tcp_hdr(s);
 
-	mutex_lock(&m_data.lock);
+	read_lock_irqsave(&m_data.lock, m_data.flags);
 
 	list_for_each_entry(pd, &m_data.head, list) {
 		uint16_t sport	= pd->trans_addr.source;
@@ -714,18 +719,23 @@ ipv4_pkt_handler(struct sk_buff* s, struct net_device* d, struct packet_type* p,
 
 						printk(KERN_INFO "NIBBLER[DBG]: MATCHED %#x\n", cpu_to_be32(iph->saddr));
 						SET_BIT(pd->data, byte, bit);
-						mutex_unlock(&m_data.lock);
+						read_unlock_irqrestore(&m_data.lock, m_data.flags);
 						skb_orphan(s);
-						kfree_skb(s);
+						dev_kfree_skb_any(s);
 						DBG("exited NET_RX_SUCCESS");
 						return NET_RX_SUCCESS;
 					}
+				} else {
+					read_unlock_irqrestore(&m_data.lock, m_data.flags);
+					skb_orphan(s);
+					dev_kfree_skb_any(s);
+					return NET_RX_SUCCESS;
 				}
-			}
+			} 
 		}
 	}
 
-	mutex_unlock(&m_data.lock);
+	read_unlock_irqrestore(&m_data.lock, m_data.flags);
 	DBG("exited NET_RX_SUCCESS");
 	return NET_RX_SUCCESS;
 }
@@ -734,8 +744,11 @@ signed int
 nbd_net_init(void)
 {
 	DBG("entered");
-	mutex_init(&m_data.lock);
+	memset(&m_data, 0, sizeof(m_data));
+	rwlock_init(&m_data.lock);
+	write_lock_irqsave(&m_data.lock, m_data.flags);
 	INIT_LIST_HEAD(&m_data.head);
+	write_unlock_irqrestore(&m_data.lock, m_data.flags);
 	DBG("exited 0");
 	return 0;
 }
@@ -747,7 +760,8 @@ nbd_net_destroy(void)
 	pkt_data_t*	next	= NULL;
 
 	DBG("entered");
-	mutex_lock(&m_data.lock);
+
+	write_lock_irqsave(&m_data.lock, m_data.flags);
 
 	list_for_each_entry_safe(cur, next, &m_data.head, list) {
 		list_del(&cur->list);
@@ -756,8 +770,7 @@ nbd_net_destroy(void)
 		cur = NULL;
 	}
 
-	mutex_unlock(&m_data.lock);
-	mutex_destroy(&m_data.lock);
+	write_unlock_irqrestore(&m_data.lock, m_data.flags);
 
 	DBG("exited 0");
 	return 0;

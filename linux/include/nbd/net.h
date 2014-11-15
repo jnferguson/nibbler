@@ -26,14 +26,15 @@
 #include <linux/random.h>
 #include <asm/atomic.h>
 #include <linux/kthread.h>
-
+#include <linux/spinlock.h>
 #include <nbd/global.h>
 #include <nbd/dev.h>
 #include <nbd/thread.h>
 
 typedef struct {
-	struct mutex		lock;
+	rwlock_t			lock;
 	struct list_head	head;
+	unsigned long 		flags;
 	size_t				count;
 } pkt_metadata_t;
 

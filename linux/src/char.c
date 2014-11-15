@@ -243,8 +243,6 @@ char_ioctl(struct file * f, unsigned int c, unsigned long a)
 			}
 
 			if (NULL != nbd->pkt) {
-				ERR("nbd->pkt: %p", nbd->pkt);
-
 				nbd_net_del(nbd->pkt);
 
 				//FRE("nbd->pkt pointer %p", nbd->pkt);

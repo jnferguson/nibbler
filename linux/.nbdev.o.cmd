@@ -1,1 +1,0 @@
-cmd_/root/nibbler/linux/nbdev.o := ld -m elf_x86_64   -r -o /root/nibbler/linux/nbdev.o /root/nibbler/linux/src/net.o /root/nibbler/linux/src/char.o /root/nibbler/linux/src/main.o /root/nibbler/linux/src/thread.o ; scripts/mod/modpost /root/nibbler/linux/nbdev.o

@@ -74,11 +74,13 @@ typedef ssize_t thread_id_t;
 
 typedef struct {
 	thread_id_t			id;
-	uint8_t				type;	   // TYPE_IPV4 || TYPE_IPV6 
-	void*				data;	   // the memory mapped into userspace
-	size_t				len;		// the usable portion of data
-	atomic_t			started;	// whether TX has started or not
-	struct list_head	list;	   // next/prev pointers
+	uint8_t				type;	   		// TYPE_IPV4 || TYPE_IPV6 
+	void*				data;	   		// the memory mapped into userspace
+	size_t				len;			// the usable portion of data
+	atomic_t			started;		// whether TX has started or not
+	atomic_t			progress;		// current progress of TX; 0-100
+	size_t				progress_step;	// 2^(32-netmask)/100 
+	struct list_head	list;	   		// next/prev pointers
 
 	// this union is so we can use the same
 	// structure for both ipv6 and ipv4.
