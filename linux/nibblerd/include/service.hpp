@@ -5,8 +5,9 @@
 #include <cstdlib>
 #include <string>
 #include <exception>
-//#include <bitset>
-//#include <mutex>
+#include <bitset>
+#include <mutex>
+#include <functional>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -15,7 +16,13 @@
 #include <pwd.h>
 #include <unistd.h>
 #include <fcntl.h>
-//#include <signal.h>
+#include <string.h>
+#include <signal.h>
+
+#include <log.hpp>
+
+static const char* _g_user = "nobody";
+static std::string _g_str_user = _g_user;
 
 class serviceException_t : public std::exception
 {
@@ -80,23 +87,43 @@ class signalHandlerException_t : public serviceException_t
 class service_t
 {
     private:
-        //std::bitset< _NSIG >
-        std::string m_dir;
-        std::string m_user;
-        uid_t       m_uid;
-        gid_t       m_gid;
+		std::mutex				m_mutex;
+		sigset_t				m_sigset;
+		log_t*					m_log;
+        std::string				m_lpath;
+		std::string 			m_dir;
+        std::string 			m_user;
+        uid_t       			m_uid;
+        gid_t       			m_gid;
 
     protected:
-        bool doUserGroupOperations(void);
-        bool doDetachOperations(void);
-        bool doFileSystemOperations(void);
+		bool translateUserGroupToUidGid(void);
+		bool doUserGroupOperations(void);
+        bool doDetachOperations(bool detach);
+        bool doFileSystemOperations(bool chroot);
         bool doResourceLimitOperations(void);
         bool doSignalHandlerOperations(void);
+		bool fixPermissions(std::string);
 
+		static void shandler(signed int, siginfo_t*, void*);
+		
     public:
-        service_t(std::string& dir);
-		service_t(const char* dir);
+        service_t(std::string&, std::string&, std::string& user = _g_str_user, bool verb = false, bool chroot = true, bool detach = true);
+		service_t(const char*, const char*, const char* user = _g_user, bool verb = false, bool chroot = true, bool detach = true);
 		virtual ~service_t(void);
+		log_t& get_log(void);
+		bool block_signal(signed int);
+		bool unblock_signal(signed int);
+		bool pending_signals(std::bitset< _NSIG >&);
+		bool pending_signals(signed int);
+		bool has_signals(void);
+		template< typename F, typename... R > void debug(const F& first, const R&... rest) { get_log().DEBUG(first, rest...); }
+		template< typename F, typename... R > void info(const F& first, const R&... rest) { get_log().INFO(first, rest...); }
+		template< typename F, typename... R > void warn(const F& first, const R&... rest) { get_log().WARN(first, rest...); }
+		template< typename F, typename... R > void error(const F& first, const R&... rest) { get_log().ERROR(first, rest...); }
+
 };
+
+typedef service_t svc_t;
 
 #endif // HAVE_SERVICE_T_HPP

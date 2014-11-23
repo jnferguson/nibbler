@@ -1,21 +1,26 @@
 #include "service.hpp"
 
+static std::mutex* g_signals_mutex = nullptr;
 static std::bitset< _NSIG >* g_signals = nullptr;
 static uint8_t* g_sigstack[_NSIG] = {0};
 
 void
 service_t::shandler(signed int num, siginfo_t* sinf, void* ctxt)
 {
-	g_signals->set(num, true);
+	if (nullptr != g_signals_mutex) {
+		g_signals_mutex->lock();
+		g_signals->set(num, true);
+		g_signals_mutex->unlock();
+	}
+
 	return;
 }
 
-service_t::service_t(std::string& dir, std::string& log, std::string& user, bool verb, bool chroot, bool detach) 
-	: m_dir(dir), m_lpath(log), m_user(user)
+service_t::service_t(std::string& dir, std::string& log) : m_dir(dir), m_lpath(log), m_user("nobody")
 {
 	std::lock_guard< std::mutex > l(m_mutex);
 
-	m_log = new log_t(log, verb);
+	m_log = new log_t(log);
 
 	m_log->DEBUG("entered");
 
@@ -25,11 +30,11 @@ service_t::service_t(std::string& dir, std::string& log, std::string& user, bool
 	if (false == translateUserGroupToUidGid()) 
 		throw invalidUserException_t("Error while retrieving uid/gid for user 'nobody'");
 
-	if (false == doFileSystemOperations(chroot))
+	if (false == doFileSystemOperations())
 		throw filesystemException_t("Error while closing files, chrooting, et cetera");
 
-	if (false == doDetachOperations(detach))
-		throw detachException_t("Error while forking/detaching from controlling terminal");
+//	if (false == doDetachOperations())
+//		throw detachException_t("Error while forking/detaching from controlling terminal");
 
 	if (false == doUserGroupOperations())
 		throw userGroupException_t("Error while dropping privileges");
@@ -45,12 +50,11 @@ service_t::service_t(std::string& dir, std::string& log, std::string& user, bool
     return;
 }
 
-service_t::service_t(const char* dir, const char* log, const char* user, bool verb, bool chroot, bool detach) 
-	: m_dir(dir), m_lpath(log), m_log(nullptr), m_user(user)
+service_t::service_t(const char* dir, const char* log) : m_dir(dir), m_lpath(log), m_log(nullptr), m_user("nobody")
 {
 	std::lock_guard< std::mutex > l(m_mutex);
 
-	m_log = new log_t(log, verb);
+	m_log = new log_t(log);
 
 	m_log->DEBUG("entered");
 
@@ -60,11 +64,11 @@ service_t::service_t(const char* dir, const char* log, const char* user, bool ve
 	if (false == translateUserGroupToUidGid())
 		throw invalidUserException_t("Error while retrieving uid/gid for user 'nobody'");
 
-	if (false == doFileSystemOperations(chroot))
+	if (false == doFileSystemOperations())
 		throw filesystemException_t("Error while closing files, chrooting, et cetera");
 
-	if (false == doDetachOperations(detach))
-		throw detachException_t("Error while forking/detaching from controlling terminal");
+//	if (false == doDetachOperations())
+//		throw detachException_t("Error while forking/detaching from controlling terminal");
 
 	if (false == doUserGroupOperations())
 		throw userGroupException_t("Error while dropping privileges");
@@ -145,7 +149,7 @@ service_t::~service_t(void)
 }
 
 bool
-service_t::doFileSystemOperations(bool chroot)
+service_t::doFileSystemOperations(void)
 {
     long            mfd = 0;
     signed int      fd  = 0;
@@ -191,26 +195,24 @@ service_t::doFileSystemOperations(bool chroot)
         return false;
 	}
 
-	if (true == chroot) {
-		if (false == fixPermissions(m_dir))
-			return false;
+	if (false == fixPermissions(m_dir))
+		return false;
 
-		if (false == fixPermissions(m_dir + "/etc"))
-			return false;
+	if (false == fixPermissions(m_dir + "/etc"))
+		return false;
 
-		if (false == fixPermissions(m_dir + "/etc/hosts"))
-			return false;
+	if (false == fixPermissions(m_dir + "/etc/hosts"))
+		return false;
 
-		if (false == fixPermissions(m_dir + "/etc/resolv.conf"))
-			return false;
+	if (false == fixPermissions(m_dir + "/etc/resolv.conf"))
+		return false;
 
-		if (false == fixPermissions(m_dir + "/etc/localtime"))
-			return false;
+	if (false == fixPermissions(m_dir + "/etc/localtime"))
+		return false;
 
-    	if (0 > ::chroot(m_dir.c_str())) {
-    	 	m_log->ERROR("Error in ::chroot('", m_dir, "'): ", ::strerror(errno));
-		 	return false;
-		}
+    if (0 > ::chroot(m_dir.c_str())) {
+     	m_log->ERROR("Error in ::chroot('", m_dir, "'): ", ::strerror(errno));
+	 	return false;
 	}
 
 	m_log->DEBUG("returning success");
@@ -255,7 +257,7 @@ service_t::doUserGroupOperations(void)
 }
 
 bool
-service_t::doDetachOperations(bool detach)
+service_t::doDetachOperations(void)
 {
     pid_t pid   = 0;
 
@@ -266,25 +268,23 @@ service_t::doDetachOperations(bool detach)
         return true;
 	}
 
-	if (true == detach) {
-    	pid = ::fork();
+    pid = ::fork();
 
-    	switch (pid) {
-    	    case 0:     // child
-    	        break;
-    	    case -1:    // error
-				m_log->ERROR("Error in ::fork()", ::strerror(errno));
-    	        return false;
-    	        break;
-    	    default:    // parent
-    	        ::_exit(EXIT_SUCCESS);
-    	        break;
-    	}
+    switch (pid) {
+        case 0:     // child
+            break;
+        case -1:    // error
+			m_log->ERROR("Error in ::fork()", ::strerror(errno));
+            return false;
+            break;
+        default:    // parent
+            ::_exit(EXIT_SUCCESS);
+            break;
+    }
 
-    	if (0 > ::setsid()) {
-    	 	m_log->ERROR("Error in ::setsid(): ", ::strerror(errno));
-			return false;
-		}
+    if (0 > ::setsid()) {
+     	m_log->ERROR("Error in ::setsid(): ", ::strerror(errno));
+		return false;
 	}
 
 	m_log->DEBUG("returning success");
@@ -330,6 +330,9 @@ service_t::doSignalHandlerOperations(void)
 		m_log->ERROR("Error in ::sigprocmask(): ", ::strerror(errno));
 		return false;
 	}
+
+	if (nullptr == g_signals_mutex)
+		g_signals_mutex = new std::mutex();
 
 	if (nullptr == g_signals)
 		g_signals = new std::bitset< _NSIG >();
@@ -410,8 +413,7 @@ service_t::block_signal(signed int num)
 	}
 
 	if (0 > ::sigprocmask(SIG_SETMASK, &m_sigset, &o)) {
-		m_log->ERROR("Error in ::sigprocmask(): ", ::strerror(errno));
-		return false;
+		m_log->ERROR("Error in ::sigprocmask(): ", 
 	}
 
 	if (0 > ::sigaddset(&m_sigset, num)) {
@@ -449,6 +451,7 @@ service_t::unblock_signal(signed int num)
 
 	if (0 > ::sigdelset(&m_sigset, num)) {
 		m_log->ERROR("Error in ::sigdelset(): ", ::strerror(errno));
+		g_signals_mutex->unlock();
 		return false;
 	}
 
@@ -513,7 +516,7 @@ service_t::pending_signals(signed int num)
 	r = g_signals->test(num);
 	g_signals->reset(num);
 
-	if (0 > ::sigprocmask(SIG_SETMASK, &o, nullptr)) {
+	if (0 > ::sigprocmask(SIG_SETMASK, &o)) {
 		m_log->ERROR("Error in ::sigprocmask(): ", ::strerror(errno));
 		return false;
 	}
@@ -529,21 +532,17 @@ service_t::has_signals(void)
 {
 	std::lock_guard< std::mutex > 	l(m_mutex);
 	bool							r(false);
-	sigset_t						o({0});
 
 	m_log->DEBUG("entered");
 
-	if (0 > ::sigprocmask(SIG_SETMASK, &m_sigset, &o)) {
-		m_log->ERROR("Error in ::sigprocmask(): ", ::strerror(errno));
+	if (nullptr == g_signals_mutex) {
+		m_log->ERROR("Global signals mutex has not been initialized");
 		return false;
 	}
 
+	g_signals_mutex->lock();
 	r = g_signals->any();
-
-	if (0 > ::sigprocmask(SIG_SETMASK, &o, nullptr)) {
-		m_log->ERROR("Error in ::sigprocmask(): ", ::strerror(errno));
-		return false;
-	}
+	g_signals_mutex->unlock();
 
 	m_log->DEBUG("exiting ", r);
 	return r;
