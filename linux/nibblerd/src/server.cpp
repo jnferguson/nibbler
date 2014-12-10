@@ -1,14 +1,16 @@
 #include "server.hpp"
 
+#include <arpa/inet.h>
+
 bool 
-server_t::bind_address(struct sockaddr* addr, std::size_t len)
+server_t::bind_address(signed int sock, struct sockaddr* addr, std::size_t len)
 {
 	m_log.DEBUG("entered");
 
 	if (nullptr == addr || 0 == len)
 		return false;
-		
-	if (0 > ::bind(m_sock, addr, len)) {
+	
+	if (0 > ::bind(sock, addr, len)) {
 		m_log.ERROR("Error in ::bind(): ", ::strerror(errno));
 		return false;
 	}
@@ -20,69 +22,74 @@ server_t::bind_address(struct sockaddr* addr, std::size_t len)
 bool 
 server_t::initialize_socket(std::vector< std::string >& hosts)
 {
-	struct addrinfo		hints 	= {0};
-	struct addrinfo*	res		= nullptr;
-	const signed int	tval	= 1;
-
+	struct addrinfo						hints 	= {0};
+	struct addrinfo*					res		= nullptr;
+	const signed int					tval	= 1;
+	signed int							sock	= -1;
+	
 	m_log.DEBUG("entered");
 
 	hints.ai_family 	= AF_UNSPEC;
 	hints.ai_flags		= AI_IDN;
+	hints.ai_socktype	= SOCK_STREAM;
+	hints.ai_protocol	= 6; // TCP
 	hints.ai_canonname	= nullptr;
 	hints.ai_addr		= nullptr;
 	hints.ai_next		= nullptr;
 
-	switch (m_proto) {
-		case SERVER_TCP_TYPE:
-			m_sock = ::socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 6);
-
-			hints.ai_socktype 	= SOCK_STREAM;
-			hints.ai_protocol	= 6;
-
-			m_log.INFO("server is TCP type");
-			break;
-
-		case SERVER_UDP_TYPE:
-			m_sock = ::socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 17);
-
-			hints.ai_socktype 	= SOCK_DGRAM;
-			hints.ai_protocol 	= 17;
-			m_log.INFO("server is UDP type");
-			break;
-
-		default:
-			m_log.ERROR("Invalid/unsupported protocol specified: ", static_cast< signed int >(m_proto));
-			return false;
-			break;
-	}
-
 	for (auto& host : hosts) {
+		m_log.INFO("Binding to: ", host);
+
 		if (0 > ::getaddrinfo(host.c_str(), std::to_string(m_port).c_str(), &hints, &res)) {
 			m_log.ERROR("Error in ::getaddrinfo(): ", ::strerror(errno));
-			::close(m_sock);
+			close_sockets();
 			return false;
 		}
 
+		switch (res->ai_family) {
+			case AF_INET:
+				sock = ::socket( AF_INET, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 6);
+				break;
+
+			case AF_INET6:
+				sock = ::socket(AF_INET6, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 6);
+				break;
+			default:
+				throw std::runtime_error("Unknown or otherwise unsupported protocol family encountered");
+				break;
+		}
+
+
 		for (struct addrinfo* ptr = res; ptr != nullptr; ptr = ptr->ai_next) 
-			bind_address(ptr->ai_addr, ptr->ai_addrlen);
+				if (true == bind_address(sock, ptr->ai_addr, ptr->ai_addrlen))
+					break;
 
 		::freeaddrinfo(res);
-	}
 
-	if (0 > ::setsockopt(m_sock, SOL_SOCKET, SO_REUSEADDR, &tval, sizeof(tval))) {
-		m_log.ERROR("Error in ::setsockopt(): ", ::strerror(errno));
-		::close(m_sock);
-		return false;
+		if (0 > ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &tval, sizeof(tval))) {
+			m_log.ERROR("Error in ::setsockopt(): ", ::strerror(errno));
+			::close(sock);
+			close_sockets();
+			return false;
+		}
+
+		m_sockets.push_back(sock);
 	}
 
 	m_log.DEBUG("returning true");
 	return true;
 }
 
-server_t::server_t(log_t& log, std::string host, uint16_t port, server_proto_t proto) : m_log(log), m_proto(proto), m_port(port), 
-																						m_sock(-1), m_epoll(-1), m_max_threads(0), 
-																						m_callback(&server_t::default_handler),
-																						m_continue(true)
+server_t::server_t(	log_t& log, std::string host, 
+					uint16_t port, 
+					std::vector< uint8_t >& cert, 
+					std::vector< uint8_t >& key, 
+					std::vector< std::vector< uint8_t > >& chain) 
+						: 	m_log(log), m_port(port), 
+							m_ssl(m_log, cert, key, chain),
+							m_epoll(-1), m_max_threads(0), 
+							m_callback(&server_t::default_handler),
+							m_continue(true), m_tcount(0)
 {
 	std::lock_guard< std::mutex > 	l(m_mutex);
 	std::vector< std::string > 		v;
@@ -98,10 +105,16 @@ server_t::server_t(log_t& log, std::string host, uint16_t port, server_proto_t p
 	return;
 }
 
-server_t::server_t(log_t& log, std::vector< std::string > hosts, uint16_t port, server_proto_t proto) : m_log(log), m_proto(proto), m_port(port), 
-																										m_sock(-1), m_epoll(-1), m_max_threads(0),
-																										m_callback(&server_t::default_handler),
-																										m_continue(true)
+server_t::server_t(	log_t& log, std::vector< std::string > hosts, 
+					uint16_t port, 
+					std::vector< uint8_t >& cert, 
+					std::vector< uint8_t >& key, 
+					std::vector< std::vector< uint8_t > >& chain) 
+							: 	m_log(log), m_port(port), 
+								m_ssl(m_log, cert, key, chain),
+								m_epoll(-1), m_max_threads(0),
+								m_callback(&server_t::default_handler),
+								m_continue(true), m_tcount(0)
 {
 	std::lock_guard< std::mutex > l(m_mutex);
 	
@@ -123,20 +136,28 @@ server_t::~server_t(void)
 
 	while (! m_threads.empty()) {
 		std::thread* thread = m_threads.front();
-		
-		thread->join();
+	
+		m_threads.pop_front();
+
+		if (nullptr == thread) 
+			continue;
+
 		delete thread;
 	}
 
 	while (! m_queue.empty()) {
-		connection_t* cd = m_queue.front();
-		
-		::close(cd->socket);
-		delete cd;
+		ssl_conn_t cd = m_queue.front();
+
 		m_queue.pop();
+
+		if (nullptr == cd.get()) 
+			continue;
+
+		cd->close();
+		cd = nullptr;
 	}
 
-	::close(m_sock);
+	close_sockets();
 	::close(m_epoll);
 
 	m_log.DEBUG("returning");
@@ -148,11 +169,9 @@ server_t::listen_socket(signed int backlog)
 {
 	m_log.DEBUG("entered");
 
-	if (SERVER_UDP_TYPE == m_proto)
-		return true;
-
-	if (0 > ::listen(m_sock, backlog))
-		return false;
+	for (auto& socket : m_sockets)
+		if (0 > ::listen(socket, backlog))
+			return false;
 
 	m_log.DEBUG("returning");
 	return true;
@@ -162,7 +181,6 @@ bool
 server_t::accept_connections(signed int backlog)
 {
 	std::lock_guard< std::mutex > 	l(m_mutex);
-	struct epoll_event 				ev({0});
 
 	m_log.DEBUG("entered");
 
@@ -181,55 +199,81 @@ server_t::accept_connections(signed int backlog)
 		return false;
 	}
 
-	ev.events 	= EPOLLIN|EPOLLERR; // need others?
-	ev.data.fd	= m_sock;
+	for (auto& socket : m_sockets) {
+		struct epoll_event ev = {0};
+		
+		ev.events 	= EPOLLIN|EPOLLERR;
+		ev.data.fd	= socket;
 
-	if (0 > ::epoll_ctl(m_epoll, EPOLL_CTL_ADD, m_sock, &ev)) {
-		m_log.ERROR("Error in ::epoll_ctl()", ::strerror(errno));
-		::close(m_epoll);
-		m_epoll = -1;
-		return false;
+		if (0 > ::epoll_ctl(m_epoll, EPOLL_CTL_ADD, socket, &ev)) {
+			m_log.ERROR("Error in ::epoll_ctl(): ", ::strerror(errno));
+			::close(m_epoll);
+			m_epoll = -1;
+			return false;
+		}
+
+		ev.events 	= EPOLLIN|EPOLLERR|EPOLLRDHUP|EPOLLPRI|EPOLLHUP; // need others?
+		ev.data.fd	= socket;
 	}
 
-	m_tmutex.lock();
-
-	m_threads.push_back(new std::thread([&]()
-	{
-		m_log.INFO("Accept thread started, TID: ", std::this_thread::get_id());
+	m_threads.push_back(new std::thread([&](){
+		m_log.INFO("Accept task thread started, TID: ", std::this_thread::get_id());
 
 		do {
-			struct epoll_event 	events 	= {0};
-			signed int 			fd		= -1;
-			struct sockaddr		sa		= {0};
-			socklen_t			le		= sizeof(struct sockaddr);
-			connection_t*		cd		= nullptr; //{-1, nullptr, 0};
+			signed int			ecnt		= 0;
+			struct epoll_event  events[32]  = {0};
 
-			if (0 > ::epoll_wait(m_epoll, &events, 1, -1)) {
+			ecnt = ::epoll_wait(m_epoll, events, 32, -1);
+
+			if (0 > ecnt) {
 				m_log.ERROR("Error in ::epoll_wait(): ", ::strerror(errno));
 				return;
-			}
-
-			if (events.data.fd != m_sock) {
-				m_log.WARN("::epoll_wait() returned a file descriptor other than the only one we specified...");
+			} else if (0 == ecnt) 
 				continue;
-			}
-		
-			fd = ::accept(m_sock, &sa, &le);
 
-			if (0 > fd) {
-				m_log.ERROR("Error in ::accept(): ", ::strerror(errno));
-				//return;
-			}
-			
-			cd = new connection_t(fd, &sa, le);
+			for (signed int cnt = 0; cnt < ecnt; cnt++) {
+				signed int		fd = -1;
+				struct sockaddr sa = {0};
+				socklen_t		le = sizeof(struct sockaddr);
+				connection_t*	cd = nullptr;
 
-			m_qmutex.lock();
-			m_queue.push(cd);
-			m_qmutex.unlock();
+				if (0 != (events[cnt].events & ~(EPOLLIN|EPOLLPRI))) {
+					m_log.ERROR("Received exceptional error/hang-up event on listening socket.");
+					::shutdown(events[cnt].data.fd, SHUT_RDWR);
+					::close(events[cnt].data.fd);
+					// XXX mutex? 
+					m_sockets.remove(events[cnt].data.fd);
+					continue;
+				}
+
+				fd = ::accept(events[cnt].data.fd, &sa, &le);
+
+				if (0 > fd) {
+					m_log.ERROR("Error in ::accept(): ", ::strerror(errno));
+					continue;
+				}
+
+				try {
+					// grmbl. there is no safe way to do shit 
+					// relating to a mutex in a try/catch that
+					// doesnt _exit() outside of a scoped lock.
+					// because there is no way to check and see
+					// if the fucking lock is locked.
+					std::lock_guard< std::mutex > 	l(m_qmutex);
+					ssl_conn_t 						s(m_ssl.accept(fd, &sa, le));
+
+					m_queue.push(s);
+
+				} catch(std::runtime_error& e) {
+					m_log.ERROR(e.what());
+					::close(fd);
+				}
+
+			}
 
 		} while ( true == server_continue() );
-	
-		m_log.DEBUG("Accept thread returning...");
+
+		m_log.DEBUG("Accept task returning...");
 		return;
 	}));
 
@@ -238,8 +282,6 @@ server_t::accept_connections(signed int backlog)
 		m_log.INFO("Queue thread started, TID: ", std::this_thread::get_id());
 
 		do {
-			connection_t* cd(nullptr);
-
 			m_qmutex.lock();
 			
 			if (true == m_queue.empty()) {
@@ -248,56 +290,41 @@ server_t::accept_connections(signed int backlog)
 				continue;
 			}
 
-			m_tmutex.lock();
 
-			if (m_max_threads <= m_threads.size()) {
-				m_tmutex.unlock();
+			if (m_max_threads <= m_tcount.load()) { 
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 				continue;
 			}
 
-			cd = m_queue.front();
-			m_queue.pop();
-			m_qmutex.unlock();
+			{
+				ssl_conn_t 	sc(m_queue.front());
+				
+				m_queue.pop();
+				m_qmutex.unlock();
 
-			m_threads.push_back(new std::thread([&](){ m_callback(cd); }));
-			m_tmutex.unlock();
-			cd = nullptr;
+				m_tcount++;
+				
+				try {
+					std::async(std::launch::async, [&](){ this->m_callback(sc); m_tcount--; return; });
 
-		} while ( true == server_continue() );
-	
-		m_log.INFO("Queue thread returning");
-	}));
-
-	m_threads.push_back(new std::thread([&]()
-	{
-		m_log.INFO("Reaper thread started, TID: ", std::this_thread::get_id());
-
-		do {
-			std::lock_guard< std::mutex > 		l(m_tmutex);
-			
-			for (auto itr = m_threads.begin(); itr != m_threads.end(); itr++) {
-				std::thread* t = *itr;
-
-				if (nullptr == t) {
-					m_threads.remove(t);
-					
-				} else if (true == t->joinable()) {
-					t->join();
-					m_threads.remove(t);
-					delete t;
+				} catch (std::runtime_error& e) {
+					m_log.ERROR(e.what());
 				}
+
+				sc = nullptr;
 			}
 
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-		} while (true == server_continue() );
-
-		m_log.INFO("Reaped thread returning");
+		} while ( true == server_continue() );
+    
+		m_log.DEBUG("Queue thread returning");
 		return;
 	}));
-	
-	m_tmutex.unlock();
+
+	for (auto itr = m_threads.begin(); itr != m_threads.end(); itr++) {
+		if (*itr) {
+			(*itr)->detach();
+		}
+	}
 
 	m_log.DEBUG("returning true");
 	return true;

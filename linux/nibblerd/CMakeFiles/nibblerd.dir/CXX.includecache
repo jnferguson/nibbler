@@ -6,9 +6,9 @@
 
 #IncludeRegexTransform: 
 
-/root/nibbler/linux/nibblerd/src/server.cpp
-server.hpp
-/root/nibbler/linux/nibblerd/src/server.hpp
+/root/nibbler/linux/nibblerd/src/ssl.cpp
+ssl.hpp
+/root/nibbler/linux/nibblerd/src/ssl.hpp
 
 include/log.hpp
 cstdlib
@@ -38,38 +38,30 @@ string.h
 errno.h
 -
 
-include/server.hpp
+include/ssl.hpp
 cstdint
 -
-cstdlib
--
-exception
+memory
 -
 string
 -
 vector
 -
-queue
+openssl/ssl.h
 -
-thread
+openssl/err.h
 -
-mutex
+openssl/bio.h
 -
-list
+openssl/x509.h
 -
-functional
--
-chrono
--
-unistd.h
+openssl/x509_vfy.h
 -
 sys/types.h
 -
 sys/socket.h
 -
-sys/epoll.h
--
-netdb.h
+unistd.h
 -
 log.hpp
 include/log.hpp

@@ -3,22 +3,48 @@
 
 CMakeFiles/nibblerd.dir/src/config.cpp.o: src/config.cpp
 CMakeFiles/nibblerd.dir/src/config.cpp.o: include/config.hpp
+CMakeFiles/nibblerd.dir/src/config.cpp.o: include/convert.hpp
+
+CMakeFiles/nibblerd.dir/src/convert.cpp.o: src/convert.cpp
+CMakeFiles/nibblerd.dir/src/convert.cpp.o: include/convert.hpp
+
+CMakeFiles/nibblerd.dir/src/file.cpp.o: src/file.cpp
+CMakeFiles/nibblerd.dir/src/file.cpp.o: include/convert.hpp
+CMakeFiles/nibblerd.dir/src/file.cpp.o: include/file.hpp
 
 CMakeFiles/nibblerd.dir/src/log.cpp.o: src/log.cpp
 CMakeFiles/nibblerd.dir/src/log.cpp.o: include/log.hpp
 
 CMakeFiles/nibblerd.dir/src/main.cpp.o: src/main.cpp
 CMakeFiles/nibblerd.dir/src/main.cpp.o: include/config.hpp
+CMakeFiles/nibblerd.dir/src/main.cpp.o: include/convert.hpp
+CMakeFiles/nibblerd.dir/src/main.cpp.o: include/file.hpp
 CMakeFiles/nibblerd.dir/src/main.cpp.o: include/log.hpp
 CMakeFiles/nibblerd.dir/src/main.cpp.o: include/nibbler.hpp
 CMakeFiles/nibblerd.dir/src/main.cpp.o: include/server.hpp
 CMakeFiles/nibblerd.dir/src/main.cpp.o: include/service.hpp
+CMakeFiles/nibblerd.dir/src/main.cpp.o: include/ssl.hpp
+
+CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: src/nibbler.cpp
+CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/config.hpp
+CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/convert.hpp
+CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/file.hpp
+CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/log.hpp
+CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/nibbler.hpp
+CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/server.hpp
+CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/service.hpp
+CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/ssl.hpp
 
 CMakeFiles/nibblerd.dir/src/server.cpp.o: src/server.cpp
 CMakeFiles/nibblerd.dir/src/server.cpp.o: include/log.hpp
 CMakeFiles/nibblerd.dir/src/server.cpp.o: include/server.hpp
+CMakeFiles/nibblerd.dir/src/server.cpp.o: include/ssl.hpp
 
 CMakeFiles/nibblerd.dir/src/service.cpp.o: src/service.cpp
 CMakeFiles/nibblerd.dir/src/service.cpp.o: include/log.hpp
 CMakeFiles/nibblerd.dir/src/service.cpp.o: include/service.hpp
+
+CMakeFiles/nibblerd.dir/src/ssl.cpp.o: src/ssl.cpp
+CMakeFiles/nibblerd.dir/src/ssl.cpp.o: include/log.hpp
+CMakeFiles/nibblerd.dir/src/ssl.cpp.o: include/ssl.hpp
 

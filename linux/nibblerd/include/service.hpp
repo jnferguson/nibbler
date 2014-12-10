@@ -19,7 +19,8 @@
 #include <string.h>
 #include <signal.h>
 
-#include <log.hpp>
+#include "log.hpp"
+
 
 static const char* _g_user = "nobody";
 static std::string _g_str_user = _g_user;

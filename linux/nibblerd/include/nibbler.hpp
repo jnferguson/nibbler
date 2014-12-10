@@ -12,11 +12,18 @@
 
 #include "service.hpp"
 #include "server.hpp"
+#include "config.hpp"
+#include "file.hpp"
+#include "ssl.hpp"
 
 typedef struct _nibbler_conf_opts_t {
 	std::string 				root_dir;
 	std::string 				log_file;
 	std::string 				user;
+	std::string					cert;
+	std::string					key;
+	std::vector< std::string >	chain;
+//	std::string					chain;
 	std::vector< std::string > 	bind_hosts;	
 	uint16_t					bind_port;
 	std::size_t 				max_request_threads;
@@ -25,72 +32,43 @@ typedef struct _nibbler_conf_opts_t {
 	bool						detach;
 
 	_nibbler_conf_opts_t(void) : 
-			root_dir(""), log_file(""), user(""), bind_port(31336), max_request_threads(1024), verbose(false), chroot(true), detach(true)
-			{ return; }
+			root_dir("/var/db/nibbler"), log_file("/var/log/nibbler"), 
+			cert("/etc/nibbler/nibbler.crt"), key("/etc/nibbler/nibbler.key"), 
+			user("nobody"), 
+			bind_port(31336), max_request_threads(1024), 
+			verbose(false), chroot(true), detach(true)
+			{ 	
+				bind_hosts.push_back("127.0.0.1");
+				bind_hosts.push_back("::1");
+
+				chain.push_back("/etc/nibbler/certs");
+				return; 
+			}
 
 } nibbler_conf_opts_t;
+
+typedef std::vector< uint8_t > byte_vec_t;
 
 class nibbler_t {
 	private:
 		std::mutex					m_mutex;
-		svc_t&						m_svc;
-		svr_t&						m_tcp;
-		svr_t&						m_udp;
+		svc_t*						m_svc;
+		svr_t*						m_tcp;
+		config_t*					m_cnf;
+		std::string					m_cfile;
+		std::vector< uint8_t >		m_cert;
+		std::vector< uint8_t >		m_key;
+		std::vector< byte_vec_t >	m_chain;
 
 	protected:
+		static void handler(ssl_conn_t);
+		nibbler_conf_opts_t initialize_configuration(void);
+
 	public:
-		nibbler_t(nibbler_conf_opts_t& opts, svc_t& svc, svr_t& tcp, svr_t& udp) : m_svc(svc), m_tcp(tcp), m_udp(udp)
-		{ 
-			
-			if (8 >= opts.max_request_threads) {
-				// XXX JF DOUBLE CHECK ME
-				m_svc.info("Invalid maximum request threads specified (1), increasing to minimum (8)");
-				opts.max_request_threads = 8;
-			}
-
-
-			if (false == m_tcp.set_max_threads(opts.max_request_threads / 2))
-				throw std::runtime_error("Unable to set TCP servers maximum thread count");
-
-			if (false == m_udp.set_max_threads(opts.max_request_threads / 2))
-				throw std::runtime_error("Unable to set UDP servers maximum thread count");
-
-			return; 
-		}
-
-		virtual ~nibbler_t(void) 
-		{
-			std::lock_guard< std::mutex > l(m_mutex);
-
-			return; 
-		}
-
-		virtual signed int
-		start(void)
-		{
-
-			m_mutex.lock();
-
-			if (false == m_tcp.accept_connections()) { 
-				m_svc.error("Error while accepting connections on TCP service.");
-				return EXIT_FAILURE;
-			}
-
-			if (false == m_udp.accept_connections()) {
-				m_svc.error("Error while accepting connections on UDP service.");
-				return EXIT_FAILURE;
-			}
-
-			m_mutex.unlock();
-
-			do { std::this_thread::sleep_for(std::chrono::milliseconds(200)); } while( false == m_svc.pending_signals(SIGTERM) );
-
-			m_tcp.shutdown_server();
-			m_udp.shutdown_server();
-
-			m_svc.info("Received SIGTERM signal");
-			return EXIT_SUCCESS;
-		}
+		nibbler_t(const std::string&);
+		nibbler_t(const char*);
+		virtual ~nibbler_t(void); 
+		virtual signed int start(void);
 };
 
 #endif

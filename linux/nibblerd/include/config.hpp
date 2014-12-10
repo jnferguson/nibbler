@@ -12,6 +12,8 @@
 #include <cctype>
 // #include <filesystem> ... sigh, g++.
 
+#include "convert.hpp"
+
 #include <limits.h>
 #include <string.h>
 #include <unistd.h>
@@ -24,10 +26,6 @@ class config_t {
 		std::map< std::string, std::string >	m_config;
 
 	protected:
-		static inline std::string& rtrim(std::string&);
-		static inline std::string& ltrim(std::string&);
-		static inline std::string& trim(std::string&);
-
 		inline bool
 		make_path_absolute(void) 
 		{ 
@@ -54,7 +52,6 @@ class config_t {
 		std::vector< std::string > errors(void);
 		void clear_errors(void);
 		bool value_is_true(std::string);
-		std::size_t value_to_unsigned(std::string);
 };
 
 #endif

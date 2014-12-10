@@ -4,6 +4,10 @@ FILE(REMOVE_RECURSE
   "CMakeFiles/nibblerd.dir/src/log.cpp.o"
   "CMakeFiles/nibblerd.dir/src/server.cpp.o"
   "CMakeFiles/nibblerd.dir/src/config.cpp.o"
+  "CMakeFiles/nibblerd.dir/src/convert.cpp.o"
+  "CMakeFiles/nibblerd.dir/src/nibbler.cpp.o"
+  "CMakeFiles/nibblerd.dir/src/file.cpp.o"
+  "CMakeFiles/nibblerd.dir/src/ssl.cpp.o"
   "nibblerd.pdb"
   "nibblerd"
 )

@@ -57,27 +57,6 @@ config_t::~config_t(void)
 	return;
 }
 
-inline std::string&
-config_t::ltrim(std::string& s) 
-{         
-	s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
-	return s; 
-} 
-
-inline std::string&
-config_t::rtrim(std::string& s) 
-{         
-	s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());         
-	return s; 
-} 
-
-inline std::string&
-config_t::trim(std::string& s) 
-{
-	return ltrim(rtrim(s));
-}
-
-
 bool
 config_t::parse(void)
 {
@@ -170,20 +149,6 @@ void
 config_t::clear_errors(void)
 {
 	m_parse_errors.clear();	
-}
-
-std::size_t
-config_t::value_to_unsigned(std::string name)
-{
-	std::size_t ret(0);
-	std::string	value("");
-
-	if (false == has_value(name))
-		throw std::runtime_error("Invalid name specified (no such key)");
-
-	value = get_value(name);
-	ret = std::strtoul(value.c_str(), nullptr, 10);
-	return ret;
 }
 
 bool

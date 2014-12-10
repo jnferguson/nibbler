@@ -138,6 +138,54 @@ src/config.cpp.s:
 	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/config.cpp.s
 .PHONY : src/config.cpp.s
 
+src/convert.o: src/convert.cpp.o
+.PHONY : src/convert.o
+
+# target to build an object file
+src/convert.cpp.o:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/convert.cpp.o
+.PHONY : src/convert.cpp.o
+
+src/convert.i: src/convert.cpp.i
+.PHONY : src/convert.i
+
+# target to preprocess a source file
+src/convert.cpp.i:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/convert.cpp.i
+.PHONY : src/convert.cpp.i
+
+src/convert.s: src/convert.cpp.s
+.PHONY : src/convert.s
+
+# target to generate assembly for a file
+src/convert.cpp.s:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/convert.cpp.s
+.PHONY : src/convert.cpp.s
+
+src/file.o: src/file.cpp.o
+.PHONY : src/file.o
+
+# target to build an object file
+src/file.cpp.o:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/file.cpp.o
+.PHONY : src/file.cpp.o
+
+src/file.i: src/file.cpp.i
+.PHONY : src/file.i
+
+# target to preprocess a source file
+src/file.cpp.i:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/file.cpp.i
+.PHONY : src/file.cpp.i
+
+src/file.s: src/file.cpp.s
+.PHONY : src/file.s
+
+# target to generate assembly for a file
+src/file.cpp.s:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/file.cpp.s
+.PHONY : src/file.cpp.s
+
 src/log.o: src/log.cpp.o
 .PHONY : src/log.o
 
@@ -185,6 +233,30 @@ src/main.s: src/main.cpp.s
 src/main.cpp.s:
 	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
+
+src/nibbler.o: src/nibbler.cpp.o
+.PHONY : src/nibbler.o
+
+# target to build an object file
+src/nibbler.cpp.o:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/nibbler.cpp.o
+.PHONY : src/nibbler.cpp.o
+
+src/nibbler.i: src/nibbler.cpp.i
+.PHONY : src/nibbler.i
+
+# target to preprocess a source file
+src/nibbler.cpp.i:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/nibbler.cpp.i
+.PHONY : src/nibbler.cpp.i
+
+src/nibbler.s: src/nibbler.cpp.s
+.PHONY : src/nibbler.s
+
+# target to generate assembly for a file
+src/nibbler.cpp.s:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/nibbler.cpp.s
+.PHONY : src/nibbler.cpp.s
 
 src/server.o: src/server.cpp.o
 .PHONY : src/server.o
@@ -234,6 +306,30 @@ src/service.cpp.s:
 	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/service.cpp.s
 .PHONY : src/service.cpp.s
 
+src/ssl.o: src/ssl.cpp.o
+.PHONY : src/ssl.o
+
+# target to build an object file
+src/ssl.cpp.o:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/ssl.cpp.o
+.PHONY : src/ssl.cpp.o
+
+src/ssl.i: src/ssl.cpp.i
+.PHONY : src/ssl.i
+
+# target to preprocess a source file
+src/ssl.cpp.i:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/ssl.cpp.i
+.PHONY : src/ssl.cpp.i
+
+src/ssl.s: src/ssl.cpp.s
+.PHONY : src/ssl.s
+
+# target to generate assembly for a file
+src/ssl.cpp.s:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/ssl.cpp.s
+.PHONY : src/ssl.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -246,18 +342,30 @@ help:
 	@echo "... src/config.o"
 	@echo "... src/config.i"
 	@echo "... src/config.s"
+	@echo "... src/convert.o"
+	@echo "... src/convert.i"
+	@echo "... src/convert.s"
+	@echo "... src/file.o"
+	@echo "... src/file.i"
+	@echo "... src/file.s"
 	@echo "... src/log.o"
 	@echo "... src/log.i"
 	@echo "... src/log.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/nibbler.o"
+	@echo "... src/nibbler.i"
+	@echo "... src/nibbler.s"
 	@echo "... src/server.o"
 	@echo "... src/server.i"
 	@echo "... src/server.s"
 	@echo "... src/service.o"
 	@echo "... src/service.i"
 	@echo "... src/service.s"
+	@echo "... src/ssl.o"
+	@echo "... src/ssl.i"
+	@echo "... src/ssl.s"
 .PHONY : help
 
 
