@@ -15,6 +15,7 @@
 #include "config.hpp"
 #include "file.hpp"
 #include "ssl.hpp"
+#include "message.hpp"
 
 typedef struct _nibbler_conf_opts_t {
 	std::string 				root_dir;
@@ -22,6 +23,13 @@ typedef struct _nibbler_conf_opts_t {
 	std::string 				user;
 	std::string					cert;
 	std::string					key;
+	std::string					db_host;
+	std::string					db_port;
+	std::string					db_database;
+	std::string					db_ro_user;
+	std::string					db_ro_password;
+	std::string					db_rw_user;
+	std::string					db_rw_password;
 	std::vector< std::string >	chain;
 //	std::string					chain;
 	std::vector< std::string > 	bind_hosts;	
@@ -34,7 +42,9 @@ typedef struct _nibbler_conf_opts_t {
 	_nibbler_conf_opts_t(void) : 
 			root_dir("/var/db/nibbler"), log_file("/var/log/nibbler"), 
 			cert("/etc/nibbler/nibbler.crt"), key("/etc/nibbler/nibbler.key"), 
-			user("nobody"), 
+			user("nobody"), db_host("127.0.0.1"), db_database("inet"), 
+			db_ro_user("inet_ro_user"), db_rw_user("inet_rw_user"),
+			db_ro_password(""), db_rw_password(""), db_port("5432"),
 			bind_port(31336), max_request_threads(1024), 
 			verbose(false), chroot(true), detach(true)
 			{ 	

@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <functional>
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -14,10 +15,11 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <netdb.h>
 
 //#include "server.hpp"
 #include "log.hpp"
-
+#include "service.hpp"
 
 class ssl_connection_t;
 
@@ -32,6 +34,15 @@ typedef std::unique_ptr< struct sockaddr > sock_addr_t;
 
 typedef enum { S_RD = 0, S_WR, S_BO } ssl_shut_how_t;
 
+typedef struct _ssl_addr_t {
+	struct sockaddr*	addr;
+	std::size_t			len;
+
+	_ssl_addr_t(struct sockaddr* a, std::size_t l) : addr(a), len(l) { return; }
+	~_ssl_addr_t(void) { addr = nullptr; len = 0; return; }
+
+} ssl_addr_t;
+
 class ssl_connection_t 
 {
 	private:
@@ -40,14 +51,17 @@ class ssl_connection_t
 		sock_addr_t		m_addr;
 		std::size_t		m_addr_len;
 		log_t&			m_log;
+
 	protected:
 		static SSL* new_ssl(ssl_ctx_t&);
-
 		static struct sockaddr* new_sockaddr(struct sockaddr* addr, std::size_t len);
 
 	public:
 		ssl_connection_t(ssl_ctx_t&, log_t&, signed int, struct sockaddr*, std::size_t); 
 		~ssl_connection_t(void);
+
+		log_t& get_log(void) { return m_log; }
+		ssl_addr_t get_addr(void) { return ssl_addr_t(m_addr.get(), m_addr_len); }
 
 		static std::string last_error_string(const char*);
         static std::string last_error_string(void);
@@ -56,6 +70,9 @@ class ssl_connection_t
 		bool write(std::vector< uint8_t >& d);
 		bool shutdown(ssl_shut_how_t how = S_BO);
 		bool close(void);
+
+		std::string remote_ip(void);
+		std::string remote_port(void); 
 };
 
 
@@ -64,6 +81,7 @@ class ssl_base_t {
 	protected:
 	public:
 		ssl_base_t(void); 
+		virtual ~ssl_base_t(void);
 };
 
 typedef std::vector< uint8_t > ssl_bvec_t;
@@ -78,10 +96,11 @@ class ssl_t : protected ssl_base_t {
 //		ssl_x509_t					m_chain;
 
 	protected:
-		static std::string error_string(void);
+		static signed int verify(signed int, X509_STORE_CTX*);
 
+		static std::string error_string(void);
 		virtual bool init_ctx(void);
-		bool init_cert_chain(void);
+		virtual bool init_cert_chain(void);
 		static SSL_CTX* new_ctx(void);
 		static BIO* new_bio(std::vector< uint8_t >&);
 		static X509* new_x509(std::vector< uint8_t >&);
@@ -89,7 +108,7 @@ class ssl_t : protected ssl_base_t {
 
 	public:
 		ssl_t(log_t& l, std::vector< uint8_t >&, std::vector< uint8_t >&, std::vector< ssl_bvec_t >&); 
-		~ssl_t(void);
+		virtual ~ssl_t(void);
 		ssl_conn_t accept(signed int, struct sockaddr*, std::size_t);
 };
 

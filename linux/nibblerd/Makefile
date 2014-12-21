@@ -162,6 +162,30 @@ src/convert.cpp.s:
 	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/convert.cpp.s
 .PHONY : src/convert.cpp.s
 
+src/database.o: src/database.cpp.o
+.PHONY : src/database.o
+
+# target to build an object file
+src/database.cpp.o:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/database.cpp.o
+.PHONY : src/database.cpp.o
+
+src/database.i: src/database.cpp.i
+.PHONY : src/database.i
+
+# target to preprocess a source file
+src/database.cpp.i:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/database.cpp.i
+.PHONY : src/database.cpp.i
+
+src/database.s: src/database.cpp.s
+.PHONY : src/database.s
+
+# target to generate assembly for a file
+src/database.cpp.s:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/database.cpp.s
+.PHONY : src/database.cpp.s
+
 src/file.o: src/file.cpp.o
 .PHONY : src/file.o
 
@@ -233,6 +257,30 @@ src/main.s: src/main.cpp.s
 src/main.cpp.s:
 	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
+
+src/message.o: src/message.cpp.o
+.PHONY : src/message.o
+
+# target to build an object file
+src/message.cpp.o:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/message.cpp.o
+.PHONY : src/message.cpp.o
+
+src/message.i: src/message.cpp.i
+.PHONY : src/message.i
+
+# target to preprocess a source file
+src/message.cpp.i:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/message.cpp.i
+.PHONY : src/message.cpp.i
+
+src/message.s: src/message.cpp.s
+.PHONY : src/message.s
+
+# target to generate assembly for a file
+src/message.cpp.s:
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/message.cpp.s
+.PHONY : src/message.cpp.s
 
 src/nibbler.o: src/nibbler.cpp.o
 .PHONY : src/nibbler.o
@@ -345,6 +393,9 @@ help:
 	@echo "... src/convert.o"
 	@echo "... src/convert.i"
 	@echo "... src/convert.s"
+	@echo "... src/database.o"
+	@echo "... src/database.i"
+	@echo "... src/database.s"
 	@echo "... src/file.o"
 	@echo "... src/file.i"
 	@echo "... src/file.s"
@@ -354,6 +405,9 @@ help:
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/message.o"
+	@echo "... src/message.i"
+	@echo "... src/message.s"
 	@echo "... src/nibbler.o"
 	@echo "... src/nibbler.i"
 	@echo "... src/nibbler.s"

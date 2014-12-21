@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <signal.h>
+#include <openssl/rand.h>
 
 #include "log.hpp"
 
@@ -90,12 +91,14 @@ class service_t
     private:
 		std::mutex				m_mutex;
 		sigset_t				m_sigset;
-		log_t*					m_log;
+		static log_t*			m_log;
         std::string				m_lpath;
 		std::string 			m_dir;
         std::string 			m_user;
         uid_t       			m_uid;
         gid_t       			m_gid;
+		static signed int		m_urnd;
+		static signed int		m_rnd;
 
     protected:
 		bool translateUserGroupToUidGid(void);
@@ -105,6 +108,7 @@ class service_t
         bool doResourceLimitOperations(void);
         bool doSignalHandlerOperations(void);
 		bool fixPermissions(std::string);
+		signed int openReadFile(std::string, bool nb = false);
 
 		static void shandler(signed int, siginfo_t*, void*);
 		
@@ -112,7 +116,9 @@ class service_t
         service_t(std::string&, std::string&, std::string& user = _g_str_user, bool verb = false, bool chroot = true, bool detach = true);
 		service_t(const char*, const char*, const char* user = _g_user, bool verb = false, bool chroot = true, bool detach = true);
 		virtual ~service_t(void);
+		static log_t* get_log_instance(void);
 		log_t& get_log(void);
+		static bool seed_prng(void);
 		bool block_signal(signed int);
 		bool unblock_signal(signed int);
 		bool pending_signals(std::bitset< _NSIG >&);

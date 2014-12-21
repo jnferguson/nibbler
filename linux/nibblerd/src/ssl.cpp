@@ -37,6 +37,10 @@ ssl_connection_t::ssl_connection_t(ssl_ctx_t& ctx, log_t& log, signed int fd, st
 {
 	m_log.DEBUG("entered");
 
+	if (false == service_t::seed_prng()) {
+		m_log.ERROR("Error seeding PRNG");
+		throw std::runtime_error("Error seeding PRNG");
+	}
 
 	if (1 != ::SSL_set_fd(m_ssl.get(), fd)) {
 		m_log.ERROR("Error in ::SSL_set_fd(): ", last_error_string());
@@ -54,9 +58,12 @@ ssl_connection_t::ssl_connection_t(ssl_ctx_t& ctx, log_t& log, signed int fd, st
 
 ssl_connection_t::~ssl_connection_t(void)
 {
-	m_log.INFO("entered");
+	m_log.DEBUG("entered");
+
 	this->shutdown();
 	m_addr.release();
+
+	m_log.DEBUG("returning");
 	return;
 }
 
@@ -86,14 +93,20 @@ ssl_connection_t::last_error_string(void)
 bool 
 ssl_connection_t::read(std::vector< uint8_t >& d, std::size_t len)
 {
+	signed int retval(0);
+
 	d.clear();
 	d.resize(len);
 
-	if (0 >= ::SSL_read(m_ssl.get(), d.data(), len)) { 
+	retval = ::SSL_read(m_ssl.get(), d.data(), len);
+
+	if (0 >= retval) {
+//	if (0 >= ::SSL_read(m_ssl.get(), d.data(), len)) { 
 		m_log.ERROR("Error in ::SSL_read(): ", ssl_connection_t::last_error_string());			
 		return false;
 	}
 
+	d.resize(retval);
 	return true;
 }
 
@@ -146,6 +159,46 @@ ssl_connection_t::close(void)
 	return true;
 }
 
+std::string
+ssl_connection_t::remote_ip(void)
+{
+	std::string retval("");
+	char 		buf[1024] = {0};
+
+	if (nullptr == m_addr.get()) {
+		m_log.ERROR("Invalid object state, remote address is null");
+		throw std::runtime_error("Invalid state (remote address is null)");
+	}
+
+	if (0 != ::getnameinfo(m_addr.get(), m_addr_len, &buf[0], 1024, nullptr, 0, NI_NUMERICHOST)) {
+		m_log.ERROR("Error calling ::getnameinfo(): ", ::strerror(errno));
+		throw std::runtime_error("Error in ::getnameinfo()");
+	}
+
+	retval = buf;
+	return retval;
+}
+
+std::string
+ssl_connection_t::remote_port(void)
+{
+	std::string retval("");
+	char		buf[1024] = {0};
+
+	if (nullptr == m_addr.get()) {
+		m_log.ERROR("Invalid object state, remote address is null");
+		throw std::runtime_error("Invalid state (remote address is null)");
+	}
+
+	if (0 != ::getnameinfo(m_addr.get(), m_addr_len, nullptr, 0, &buf[0], 1024, NI_NUMERICSERV)) {
+		m_log.ERROR("Error calling ::getnameinfo(): ", ::strerror(errno));
+		throw std::runtime_error("Error in ::getnameinfo()");
+	}
+
+	retval = buf;
+	return buf;
+}
+
 
 ssl_base_t::ssl_base_t(void) 
 {
@@ -156,6 +209,21 @@ ssl_base_t::ssl_base_t(void)
 	return;
 }
 
+ssl_base_t::~ssl_base_t(void)
+{
+	return;
+}
+
+signed int
+ssl_t::verify(signed int pv, X509_STORE_CTX* ctx)
+{
+	log_t* l(service_t::get_log_instance());
+
+	if (nullptr != l)
+		l->INFO("entered");
+
+	return pv;
+}
 
 std::string
 ssl_t::error_string(void)
@@ -212,7 +280,7 @@ ssl_t::init_ctx(void)
 		return false;
 	}
 
-	::SSL_CTX_set_verify(m_ctx.get(), SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, nullptr);
+	::SSL_CTX_set_verify(m_ctx.get(), SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, nullptr); //&ssl_t::verify); 
 	::SSL_CTX_set_verify_depth(m_ctx.get(), 5);
 
 	return true;

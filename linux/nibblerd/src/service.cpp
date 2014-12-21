@@ -2,6 +2,9 @@
 
 static std::bitset< _NSIG >* g_signals = nullptr;
 static uint8_t* g_sigstack[_NSIG] = {0};
+log_t* service_t::m_log = nullptr;
+signed int service_t::m_urnd = -1;
+signed int service_t::m_rnd = -1;
 
 void
 service_t::shandler(signed int num, siginfo_t* sinf, void* ctxt)
@@ -46,7 +49,7 @@ service_t::service_t(std::string& dir, std::string& log, std::string& user, bool
 }
 
 service_t::service_t(const char* dir, const char* log, const char* user, bool verb, bool chroot, bool detach) 
-	: m_dir(dir), m_lpath(log), m_log(nullptr), m_user(user)
+	: m_dir(dir), m_lpath(log), m_user(user)
 {
 	std::lock_guard< std::mutex > l(m_mutex);
 
@@ -133,7 +136,16 @@ service_t::~service_t(void)
 				break;
 		}
 	}
-	
+
+	if (-1 != m_urnd) {
+		::close(m_urnd);
+		m_urnd = -1;
+	}
+
+	if (-1 != m_rnd) {
+		::close(m_rnd);
+		m_rnd = -1;
+	}
 
 	m_log->INFO("deleting logging object");
 	
@@ -142,6 +154,77 @@ service_t::~service_t(void)
 	m_mutex.unlock();
 
     return;
+}
+
+// SSL_accept() blows up if we chroot
+// due to not having /dev{,u}random in
+// the 'jail'. So this is a brain-dead
+// work around; OpenSSL suggests a 
+// minimum sizeof 128 bits, so we add 256
+// on each call, using /dev/random is 
+// probably unnecessary, but it makes me
+// feel slightly better. 
+
+bool
+service_t::seed_prng(void)
+{
+	char 			buf[32] = {0};
+	std::size_t		cnt		= 0;
+	signed int		retval	= 0;
+
+	do {
+		retval = ::read(m_rnd, &buf[cnt], 1);
+
+		if (1 == retval)
+			cnt++;
+		else if (0 > retval) 
+			if (EAGAIN == errno)
+				break;
+			else
+				return false;
+
+	} while (cnt < sizeof(buf));
+
+	if (cnt != sizeof(buf)) {
+		retval = ::read(m_urnd, &buf[cnt], sizeof(buf) - cnt);
+
+		if (0 > retval) 
+			return false;
+
+		cnt += retval;
+
+	}
+
+	::RAND_seed(buf, cnt);
+	return true;
+}
+
+signed int
+service_t::openReadFile(std::string f, bool nb)
+{
+	signed int retval 	= ::open(f.c_str(), O_RDONLY);
+	signed int flags	= 0;
+
+	if (0 > retval)
+		return retval;
+	
+	if (true == nb) {
+		flags = ::fcntl(retval, F_GETFL);
+
+		if (0 > flags) {
+			::close(retval);
+			return -1;
+		}
+
+		flags |= O_NONBLOCK; 
+
+		if (0 > ::fcntl(retval, F_SETFL, flags)) {
+			::close(retval);
+			return -1;
+		}
+	}
+
+	return retval;
 }
 
 bool
@@ -185,6 +268,16 @@ service_t::doFileSystemOperations(bool chroot)
         return false;
 
 	m_log->open_log();
+
+	m_urnd = openReadFile("/dev/urandom");
+
+	if (0 > m_urnd)
+		return false;
+
+	m_rnd = openReadFile("/dev/random", true);
+
+	if (0 > m_rnd) 
+		return false;
 
     if (0 > ::chdir(m_dir.c_str())) {
 		m_log->ERROR("Error in ::chdir('", m_dir, "'): ", ::strerror(errno));
@@ -548,6 +641,13 @@ service_t::has_signals(void)
 	m_log->DEBUG("exiting ", r);
 	return r;
 }
+
+log_t*
+service_t::get_log_instance(void)
+{
+	return service_t::m_log;
+}
+
 
 log_t&
 service_t::get_log(void)

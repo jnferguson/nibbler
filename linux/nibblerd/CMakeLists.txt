@@ -13,6 +13,8 @@ add_executable(nibblerd
 				src/nibbler.cpp
 				src/file.cpp				
 				src/ssl.cpp
+				src/database.cpp
+				src/message.cpp
 				include/service.hpp
 				include/log.hpp
 				include/server.hpp
@@ -21,6 +23,8 @@ add_executable(nibblerd
 				include/nibbler.hpp
 				include/file.hpp
 				include/ssl.hpp
+				include/database.hpp
+				include/message.hpp
 )
 #INCLUDE_DIRECTORIES(/opt/libressl/include)
 #ADD_LIBRARY(libressl_ssl SHARED IMPORTED)
@@ -33,4 +37,5 @@ target_link_libraries(nibblerd ssl)
 target_link_libraries(nibblerd crypto)
 target_link_libraries(nibblerd dl)
 target_link_libraries(nibblerd pthread)
+target_link_libraries(nibblerd pqxx)
 #target_link_libraries(nibblerd botan-1.11)

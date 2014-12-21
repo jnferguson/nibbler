@@ -259,6 +259,52 @@ CMakeFiles/nibblerd.dir/src/ssl.cpp.o.provides: CMakeFiles/nibblerd.dir/src/ssl.
 
 CMakeFiles/nibblerd.dir/src/ssl.cpp.o.provides.build: CMakeFiles/nibblerd.dir/src/ssl.cpp.o
 
+CMakeFiles/nibblerd.dir/src/database.cpp.o: CMakeFiles/nibblerd.dir/flags.make
+CMakeFiles/nibblerd.dir/src/database.cpp.o: src/database.cpp
+	$(CMAKE_COMMAND) -E cmake_progress_report /root/nibbler/linux/nibblerd/CMakeFiles $(CMAKE_PROGRESS_10)
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Building CXX object CMakeFiles/nibblerd.dir/src/database.cpp.o"
+	/usr/bin/c++   $(CXX_DEFINES) $(CXX_FLAGS) -o CMakeFiles/nibblerd.dir/src/database.cpp.o -c /root/nibbler/linux/nibblerd/src/database.cpp
+
+CMakeFiles/nibblerd.dir/src/database.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/nibblerd.dir/src/database.cpp.i"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_FLAGS) -E /root/nibbler/linux/nibblerd/src/database.cpp > CMakeFiles/nibblerd.dir/src/database.cpp.i
+
+CMakeFiles/nibblerd.dir/src/database.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/nibblerd.dir/src/database.cpp.s"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_FLAGS) -S /root/nibbler/linux/nibblerd/src/database.cpp -o CMakeFiles/nibblerd.dir/src/database.cpp.s
+
+CMakeFiles/nibblerd.dir/src/database.cpp.o.requires:
+.PHONY : CMakeFiles/nibblerd.dir/src/database.cpp.o.requires
+
+CMakeFiles/nibblerd.dir/src/database.cpp.o.provides: CMakeFiles/nibblerd.dir/src/database.cpp.o.requires
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/database.cpp.o.provides.build
+.PHONY : CMakeFiles/nibblerd.dir/src/database.cpp.o.provides
+
+CMakeFiles/nibblerd.dir/src/database.cpp.o.provides.build: CMakeFiles/nibblerd.dir/src/database.cpp.o
+
+CMakeFiles/nibblerd.dir/src/message.cpp.o: CMakeFiles/nibblerd.dir/flags.make
+CMakeFiles/nibblerd.dir/src/message.cpp.o: src/message.cpp
+	$(CMAKE_COMMAND) -E cmake_progress_report /root/nibbler/linux/nibblerd/CMakeFiles $(CMAKE_PROGRESS_11)
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Building CXX object CMakeFiles/nibblerd.dir/src/message.cpp.o"
+	/usr/bin/c++   $(CXX_DEFINES) $(CXX_FLAGS) -o CMakeFiles/nibblerd.dir/src/message.cpp.o -c /root/nibbler/linux/nibblerd/src/message.cpp
+
+CMakeFiles/nibblerd.dir/src/message.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/nibblerd.dir/src/message.cpp.i"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_FLAGS) -E /root/nibbler/linux/nibblerd/src/message.cpp > CMakeFiles/nibblerd.dir/src/message.cpp.i
+
+CMakeFiles/nibblerd.dir/src/message.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/nibblerd.dir/src/message.cpp.s"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_FLAGS) -S /root/nibbler/linux/nibblerd/src/message.cpp -o CMakeFiles/nibblerd.dir/src/message.cpp.s
+
+CMakeFiles/nibblerd.dir/src/message.cpp.o.requires:
+.PHONY : CMakeFiles/nibblerd.dir/src/message.cpp.o.requires
+
+CMakeFiles/nibblerd.dir/src/message.cpp.o.provides: CMakeFiles/nibblerd.dir/src/message.cpp.o.requires
+	$(MAKE) -f CMakeFiles/nibblerd.dir/build.make CMakeFiles/nibblerd.dir/src/message.cpp.o.provides.build
+.PHONY : CMakeFiles/nibblerd.dir/src/message.cpp.o.provides
+
+CMakeFiles/nibblerd.dir/src/message.cpp.o.provides.build: CMakeFiles/nibblerd.dir/src/message.cpp.o
+
 # Object files for target nibblerd
 nibblerd_OBJECTS = \
 "CMakeFiles/nibblerd.dir/src/main.cpp.o" \
@@ -269,7 +315,9 @@ nibblerd_OBJECTS = \
 "CMakeFiles/nibblerd.dir/src/convert.cpp.o" \
 "CMakeFiles/nibblerd.dir/src/nibbler.cpp.o" \
 "CMakeFiles/nibblerd.dir/src/file.cpp.o" \
-"CMakeFiles/nibblerd.dir/src/ssl.cpp.o"
+"CMakeFiles/nibblerd.dir/src/ssl.cpp.o" \
+"CMakeFiles/nibblerd.dir/src/database.cpp.o" \
+"CMakeFiles/nibblerd.dir/src/message.cpp.o"
 
 # External object files for target nibblerd
 nibblerd_EXTERNAL_OBJECTS =
@@ -283,6 +331,8 @@ nibblerd: CMakeFiles/nibblerd.dir/src/convert.cpp.o
 nibblerd: CMakeFiles/nibblerd.dir/src/nibbler.cpp.o
 nibblerd: CMakeFiles/nibblerd.dir/src/file.cpp.o
 nibblerd: CMakeFiles/nibblerd.dir/src/ssl.cpp.o
+nibblerd: CMakeFiles/nibblerd.dir/src/database.cpp.o
+nibblerd: CMakeFiles/nibblerd.dir/src/message.cpp.o
 nibblerd: CMakeFiles/nibblerd.dir/build.make
 nibblerd: CMakeFiles/nibblerd.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --red --bold "Linking CXX executable nibblerd"
@@ -301,6 +351,8 @@ CMakeFiles/nibblerd.dir/requires: CMakeFiles/nibblerd.dir/src/convert.cpp.o.requ
 CMakeFiles/nibblerd.dir/requires: CMakeFiles/nibblerd.dir/src/nibbler.cpp.o.requires
 CMakeFiles/nibblerd.dir/requires: CMakeFiles/nibblerd.dir/src/file.cpp.o.requires
 CMakeFiles/nibblerd.dir/requires: CMakeFiles/nibblerd.dir/src/ssl.cpp.o.requires
+CMakeFiles/nibblerd.dir/requires: CMakeFiles/nibblerd.dir/src/database.cpp.o.requires
+CMakeFiles/nibblerd.dir/requires: CMakeFiles/nibblerd.dir/src/message.cpp.o.requires
 .PHONY : CMakeFiles/nibblerd.dir/requires
 
 CMakeFiles/nibblerd.dir/clean:

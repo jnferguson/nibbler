@@ -8,6 +8,8 @@ FILE(REMOVE_RECURSE
   "CMakeFiles/nibblerd.dir/src/nibbler.cpp.o"
   "CMakeFiles/nibblerd.dir/src/file.cpp.o"
   "CMakeFiles/nibblerd.dir/src/ssl.cpp.o"
+  "CMakeFiles/nibblerd.dir/src/database.cpp.o"
+  "CMakeFiles/nibblerd.dir/src/message.cpp.o"
   "nibblerd.pdb"
   "nibblerd"
 )
