@@ -7,6 +7,7 @@
 #include <mutex>
 #include <stdexcept>
 
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <string.h>
 
@@ -26,11 +27,13 @@
 #define PORT_PROTO_UDP 1
 #define PORT_PROTO_INVALID 2
 
-//typedef enum { OP_START_SCAN = 0, OP_STOP_SCAN, OP_SCAN_STATUS } op_type_t;
-//typedef enum { ADDRESS_IPV4_TYPE = 0, ADDRESS_IPV6_TYPE, ADDRESS_INVALID_TYPE } addr_type_t;
 typedef uint8_t addr_type_t;
 typedef uint8_t port_proto_t;
 typedef uint8_t op_type_t;
+
+inline std::string inet6_mask_string(uint8_t);
+inline struct in6_addr inet6_mask_convert(uint8_t);
+inline struct in6_addr inet6_lnaof(struct in6_addr&, uint8_t);
 
 struct ip_addr_t { 
 
@@ -97,37 +100,10 @@ class message_t {
 		message_t(op_type_t, uint64_t);
 		~message_t(void); 
 
-		op_type_t 
-		command(void) 
-		{ 
-			std::lock_guard< std::mutex > lck(m_mutex);
-
-			return m_command; 
-		}
-
-		uint64_t
-		id(void)
-		{
-			std::lock_guard< std::mutex > lck(m_mutex);
-
-			return m_id;
-		}
-
-		std::vector< ip_addr_t >
-		addresses(void)
-		{
-			std::lock_guard< std::mutex > lck(m_mutex);
-
-			return m_addrs;
-		}
-
-		std::vector< port_t >
-		ports(void)
-		{
-			std::lock_guard< std::mutex > lck(m_mutex);
-
-			return m_ports;
-		}
+		op_type_t command(void);
+		uint64_t id(void);
+		std::vector< ip_addr_t > addresses(void);
+		std::vector< port_t > ports(void);
 
 		bool parse_data(std::vector< uint8_t >&);
 		std::vector< uint8_t > data(void);

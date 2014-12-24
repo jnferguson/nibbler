@@ -1,5 +1,68 @@
 #include "message.hpp"
 
+inline std::string
+inet6_mask_string(uint8_t mask)
+{
+	std::string retval("00000000000000000000000000000000");
+	uint8_t     len(mask / 4);
+	uint8_t     rem(mask % 4);
+	uint8_t     idx(0);
+
+	for (idx = 0; idx < len; idx++)
+		retval.replace(idx, 1, "F");
+
+	switch (rem) {
+		case 0:
+			break;
+		case 1:
+			retval.replace(idx, 1, "8");
+			break;
+		case 2:
+			retval.replace(idx, 1, "C");
+			break;
+		case 3:
+			retval.replace(idx, 1, "E");
+			break;
+		default:
+			throw std::runtime_error("inet6_mask_string(): Invalid/impossible remainder");
+			break;
+	}
+
+	retval.insert(0x04+0x00, ":");
+	retval.insert(0x08+0x01, ":");
+	retval.insert(0x0C+0x02, ":");
+	retval.insert(0x10+0x03, ":");
+	retval.insert(0x14+0x04, ":");
+	retval.insert(0x18+0x05, ":");
+	retval.insert(0x1c+0x06, ":");
+
+	return retval;
+}
+
+
+inline struct in6_addr
+inet6_mask_convert(uint8_t mask)
+{
+	std::string     m(inet6_mask_string(mask));
+	struct in6_addr a = {0};
+
+	if (1 != ::inet_pton(AF_INET6, m.c_str(), &a))
+		throw std::runtime_error(std::string("inet6_mask_convert(): Error in ::inet_pton(): ") + ::strerror(errno));
+
+	return a;
+}
+
+inline struct in6_addr
+inet6_lnaof(struct in6_addr& addr, uint8_t mask)
+{
+	struct in6_addr a(inet6_mask_convert(mask));
+
+	for (std::size_t idx = 0; idx < sizeof(a.s6_addr); idx++)
+		addr.s6_addr[idx] &= a.s6_addr[idx];
+
+	return addr;
+}
+
 ip_addr_t::ip_addr_t(void) : type(ADDRESS_INVALID_TYPE), mask(0)
 {
 	::memset(&this->addr.v6, 0, sizeof(struct in6_addr));
@@ -11,7 +74,12 @@ ip_addr_t::ip_addr_t(struct in_addr& a, uint8_t m) : type(ADDRESS_IPV4_TYPE), ma
 	if (32 < m)
 		throw std::runtime_error("Invalid IPv4 netmask specified");
 
+	if (32 != m)
+		a.s_addr &= (~m);
+
 	::memcpy(&this->addr.v4, &a, sizeof(struct in_addr));
+
+
 	return;
 }
 
@@ -20,7 +88,12 @@ ip_addr_t::ip_addr_t(struct in6_addr& a, uint8_t m) : type(ADDRESS_IPV6_TYPE), m
 	if (128 < m)
 		throw std::runtime_error("Invalid IPv6 netmask specified");
 
-	::memcpy(&this->addr.v6, &a, sizeof(struct in6_addr));
+	if (128 != m) {
+		struct in6_addr nm = inet6_lnaof(a, m);
+		::memcpy(&this->addr.v6, &nm, sizeof(struct in6_addr));
+	} else
+		::memcpy(&this->addr.v6, &a, sizeof(struct in6_addr));
+
 	return;
 }
 
@@ -41,6 +114,9 @@ ip_addr_t::set_address(struct in_addr& a, uint8_t m)
 	if (32 < m)
 		throw std::runtime_error("Invalid IPv4 netmask specified");
 
+	if (32 != m)
+		a.s_addr &= (~m);
+
 	::memset(&this->addr.v6, 0, sizeof(struct in6_addr));
 	::memcpy(&this->addr.v4, &a, sizeof(struct in_addr));
 	return;
@@ -55,7 +131,12 @@ ip_addr_t::set_address(struct in6_addr& a, uint8_t m)
 	if (128 < m)
 		throw std::runtime_error("Invalid IPv6 netmask specified");
 
-	::memcpy(&this->addr.v6, &a, sizeof(struct in6_addr));
+	if (128 != m) {
+		struct in6_addr nm = inet6_lnaof(a, m);
+		::memcpy(&this->addr.v6, &nm, sizeof(struct in6_addr));	
+	} else
+		::memcpy(&this->addr.v6, &a, sizeof(struct in6_addr));
+
 	return;
 }
 
@@ -69,13 +150,8 @@ ip_addr_t::data(void)
 	data.push_back(mask);
 	idx = data.size();
 
-	//if (ADDRESS_IPV6_TYPE == type) {
-		data.resize(data.size() + sizeof(in6_addr));
-		::memcpy(data.data()+idx, &this->addr.v6, sizeof(in6_addr));
-	/*} else {
-		data.resize(data.size() + sizeof(in_addr));
-		::memcpy(data.data()+idx, &this->addr.v4, sizeof(in_addr));
-	}*/
+	data.resize(data.size() + sizeof(in6_addr));
+	::memcpy(data.data()+idx, &this->addr.v6, sizeof(in6_addr));
 
 	return data;
 }
@@ -357,5 +433,37 @@ message_t::data(void)
 	}
 
 	return data;
+}
+
+op_type_t
+message_t::command(void)
+{
+	std::lock_guard< std::mutex > lck(m_mutex);
+
+	return m_command;
+}
+
+uint64_t
+message_t::id(void)
+{
+	std::lock_guard< std::mutex > lck(m_mutex);
+
+	return m_id;
+}
+
+std::vector< ip_addr_t >
+message_t::addresses(void)
+{
+	std::lock_guard< std::mutex > lck(m_mutex);
+
+	return m_addrs;
+}
+
+std::vector< port_t >
+message_t::ports(void)
+{
+	std::lock_guard< std::mutex > lck(m_mutex);
+
+	return m_ports;
 }
 

@@ -162,28 +162,28 @@ main(signed int ac, char** av)
 		//message_t		msg(OP_SCAN_STATUS, 0x4141414141414141);
 
 
-		if (0 >= ::inet_pton(AF_INET, "127.0.0.1", &ia)) {
+		if (0 >= ::inet_pton(AF_INET, "127.0.0.0", &ia)) {
 			std::cerr << "inet_pton() error: " << ::strerror(errno) << std::endl;
 			return EXIT_FAILURE;
 		}
 
 		avec.push_back(ip_addr_t(ia, 24));
 		
-		if (0 >= ::inet_pton(AF_INET, "192.168.100.1", &ia)) {
+		if (0 >= ::inet_pton(AF_INET, "192.0.0.0", &ia)) {
 			std::cerr << "inet_pton() error: " << ::strerror(errno) << std::endl;
 			return EXIT_FAILURE;
 		}
 
 		avec.push_back(ip_addr_t(ia, 8));
 
-		if (0 >= ::inet_pton(AF_INET6, "fe80::20c:29ff:feee:4b72", &i6a)) {
+		if (0 >= ::inet_pton(AF_INET6, "fe80:20c:29ff:feee:4b72::1", &i6a)) {
 			std::cerr << "inet_pton() error: " << ::strerror(errno) << std::endl;
 			return EXIT_FAILURE;
 		}
 
-		avec.push_back(ip_addr_t(i6a));
+		avec.push_back(ip_addr_t(i6a, 120));
 
-		if (0 >= ::inet_pton(AF_INET, "10.0.0.0", &ia)) {
+		if (0 >= ::inet_pton(AF_INET, "10.0.0.1", &ia)) {
 			std::cerr << "inet_pton() error: " << ::strerror(errno) << std::endl;
 			return EXIT_FAILURE;
 		}
@@ -195,7 +195,7 @@ main(signed int ac, char** av)
 			return EXIT_FAILURE;
 		}
 
-		avec.push_back(ip_addr_t(i6a, 32));
+		avec.push_back(ip_addr_t(i6a));
 		pvec.push_back(port_t(PORT_PROTO_TCP, 80));
 		pvec.push_back(port_t(PORT_PROTO_TCP, 443));
 		pvec.push_back(port_t(PORT_PROTO_TCP, 143));
@@ -235,9 +235,6 @@ main(signed int ac, char** av)
 		}
 
 		std::vector< uint8_t > d(msg.data());
-		for (std::size_t idx = 0; idx < d.size(); idx++) 
-			printf("d[%lu]: %#x\n", idx, d.at(idx));
-
 		::SSL_write(ssl, d.data(), d.size());
 	}
 

@@ -22,6 +22,7 @@ CMakeFiles/nibblerd.dir/src/log.cpp.o: include/log.hpp
 CMakeFiles/nibblerd.dir/src/main.cpp.o: src/main.cpp
 CMakeFiles/nibblerd.dir/src/main.cpp.o: include/config.hpp
 CMakeFiles/nibblerd.dir/src/main.cpp.o: include/convert.hpp
+CMakeFiles/nibblerd.dir/src/main.cpp.o: include/database.hpp
 CMakeFiles/nibblerd.dir/src/main.cpp.o: include/file.hpp
 CMakeFiles/nibblerd.dir/src/main.cpp.o: include/log.hpp
 CMakeFiles/nibblerd.dir/src/main.cpp.o: include/message.hpp
@@ -36,6 +37,7 @@ CMakeFiles/nibblerd.dir/src/message.cpp.o: include/message.hpp
 CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: src/nibbler.cpp
 CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/config.hpp
 CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/convert.hpp
+CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/database.hpp
 CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/file.hpp
 CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/log.hpp
 CMakeFiles/nibblerd.dir/src/nibbler.cpp.o: include/message.hpp

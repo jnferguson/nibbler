@@ -23,6 +23,7 @@ CMakeFiles/nibblerd.dir/src/main.cpp.o
  /root/nibbler/linux/nibblerd/src/main.cpp
  include/config.hpp
  include/convert.hpp
+ include/database.hpp
  include/file.hpp
  include/log.hpp
  include/message.hpp
@@ -37,6 +38,7 @@ CMakeFiles/nibblerd.dir/src/nibbler.cpp.o
  /root/nibbler/linux/nibblerd/src/nibbler.cpp
  include/config.hpp
  include/convert.hpp
+ include/database.hpp
  include/file.hpp
  include/log.hpp
  include/message.hpp

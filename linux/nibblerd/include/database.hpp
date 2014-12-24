@@ -4,7 +4,8 @@
 #include <cstdint>
 #include <string>
 #include <pqxx/pqxx>
-
+#include <pqxx/prepared_statement>
+#include <pqxx/transaction>
 #include <memory>
 
 #include "log.hpp"
@@ -36,20 +37,26 @@ typedef struct _db_opts_t {
 
 } db_opts_t;
 
-typedef std::unique_ptr< pqxx::lazyconnection > db_conn_t;
+typedef std::shared_ptr< pqxx::lazyconnection > db_conn_t;
+typedef enum { PROTOCOL_TCP_T = 0, PROTOCOL_UDP_T } protocol_t;
 
 class database_t {
 	private:
-		log_t& 		m_log;
-		db_conn_t	m_db;
-		db_opts_t	m_opts;
+		log_t& 				m_log;
+		static db_conn_t	m_rodb;
+		static db_conn_t	m_rwdb;
+		db_opts_t			m_opts;
 
 	protected:
-		static pqxx::lazyconnection* new_db_connection(log_t& l, db_opts_t& opts, bool ro = true);
+		static db_conn_t new_db_connection(log_t& l, db_opts_t& opts, bool ro = true);
 
 	public:
 		database_t(log_t& l,  db_opts_t& opts);
 		~database_t(void);
+		uint64_t create_scan(void);
+		bool delete_scan(uint64_t);
+		bool new_scan(std::string, uint16_t, protocol_t, uint64_t&);
+		uint8_t scan_status(uint64_t);
 };
 
 #endif

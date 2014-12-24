@@ -10,12 +10,15 @@
 #include <chrono>
 #include <exception>
 
+#include <arpa/inet.h>
+
 #include "service.hpp"
 #include "server.hpp"
 #include "config.hpp"
 #include "file.hpp"
 #include "ssl.hpp"
 #include "message.hpp"
+#include "database.hpp"
 
 typedef struct _nibbler_conf_opts_t {
 	std::string 				root_dir;
@@ -69,6 +72,7 @@ class nibbler_t {
 		std::vector< uint8_t >		m_cert;
 		std::vector< uint8_t >		m_key;
 		std::vector< byte_vec_t >	m_chain;
+		static database_t*			m_db;
 
 	protected:
 		static void handler(ssl_conn_t);
