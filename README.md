@@ -41,3 +41,5 @@ Pretty GUI, mostly non-functional.
 Linux node code entirely non-functional.
 Database code, entirely absent.
 Summary? approaching functional, but presently just X thousand lines of code that does nothing. )
+
+(Multiple; Baltimore, allowed out of the box for DOD requests to parallel construct industrial espionage. Eventually sabotaged)
